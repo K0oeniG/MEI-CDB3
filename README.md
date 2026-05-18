@@ -47,3 +47,9 @@ const DEX_ADDRESS = "PASTE_YOUR_FIRST_REMIX_ADDRESS_HERE";
 const NFT_MARKET_ADDRESS = "PASTE_YOUR_SECOND_REMIX_ADDRESS_HERE";
 
 To the respective address (REMOVE THE Ox)
+
+## How to Run
+
+To run: 
+    In the folder "backend/" run $node server.js
+    In the folder "frontend/" run $npm run dev  
