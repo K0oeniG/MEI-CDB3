@@ -203,7 +203,7 @@ contract NFTPawningMarketplace is ERC721URIStorage {
         NftLoan storage loan = nftLoans[loanId];
         require(loan.funded && loan.active, "Contrato inativo.");
         require(block.timestamp <= loan.expiry, "Prazo expirado! Use a liquidacao.");
-        require(msg.sender == loan.borrower, "Apenas o mutuário pode pagar.");
+        require(msg.sender == loan.borrower, "Apenas o mutuario pode pagar.");
 
         // Calculate a 10% plain interest on top of principal
         uint256 totalInterest = (loan.ethRequested * 10) / 100;
