@@ -1683,25 +1683,25 @@ const NFT_MARKET_ABI = [
     {
       "inputs": [
         {
-          "internalType": "address",
-          "name": "from",
-          "type": "address"
-        },
-        {
-          "internalType": "address",
-          "name": "to",
-          "type": "address"
-        },
-        {
           "internalType": "uint256",
           "name": "tokenId",
           "type": "uint256"
         }
-      ]
+      ],
+      "name": "tokenURI",
+      "outputs": [
+        {
+          "internalType": "string",
+          "name": "",
+          "type": "string"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
     }
 ];
-const DEX_ADDRESS = "0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0";
-const NFT_MARKET_ADDRESS = "0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9";
+const DEX_ADDRESS = "0x5FbDB2315678afecb367f032d93F642f64180aa3";
+const NFT_MARKET_ADDRESS = "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512";
 
 
 export default function Dashboard() {
@@ -1901,8 +1901,7 @@ const fetchMyLoans = async (userAddress, sig) => {
     // Última prestação = Valor da prestação + Capital (Amount)
     return calculateInstallment(loan).add(loan.amount);
   };
-
-  return (
+return (
     <div style={{ background: '#0b0a12', color: '#eee', minHeight: '100vh', width: '100vw', margin: 0, padding: '2rem 1rem', boxSizing: 'border-box' }}>
       
       <style jsx global>{`
@@ -1918,6 +1917,7 @@ const fetchMyLoans = async (userAddress, sig) => {
       
       <div style={{ maxWidth: '950px', margin: '0 auto', fontFamily: '"Segoe UI", sans-serif' }}>
         
+        {/* CABEÇALHO */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #222', paddingBottom: '1rem' }}>
           <div>
             <h1 style={{ margin: 0, fontWeight: '800', background: 'linear-gradient(90deg, #a855f7, #6366f1)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>NEXUS FINANCIAL PROTOCOL</h1>
@@ -1935,7 +1935,7 @@ const fetchMyLoans = async (userAddress, sig) => {
            </div>
         )}
 
-        {/* Tabs */}
+        {/* TABS */}
         <div style={{ display: 'flex', gap: '0.5rem', margin: '2rem 0 1.5rem 0' }}>
           <button onClick={() => setActiveTab('dex')} style={{ padding: '0.75rem 1.25rem', border: 'none', background: activeTab === 'dex' ? '#2e2a52' : '#141323', color: '#fff', cursor: 'pointer', borderRadius: '6px' }}>💰 DEX Market & Loans</button>
           <button onClick={() => setActiveTab('nft-market')} style={{ padding: '0.75rem 1.25rem', border: 'none', background: activeTab === 'nft-market' ? '#2e2a52' : '#141323', color: '#fff', cursor: 'pointer', borderRadius: '6px' }}>🖼️ NFT Marketplace & Auctions</button>
@@ -1945,35 +1945,28 @@ const fetchMyLoans = async (userAddress, sig) => {
         {/* ----------------- SECTOR 1: DEX & STANDARD LOANS ----------------- */}
         {activeTab === 'dex' && (
           <section>
-            {/* CAIXA DOS EMPRÉSTIMOS DEX SEMPRE VISÍVEL */}
+            {/* CAIXA DOS EMPRÉSTIMOS DEX */}
             <div style={{ background: '#1e1b4b', padding: '1.5rem', borderRadius: '8px', marginBottom: '2rem', border: '1px solid #4338ca' }}>
               <h3 style={{ color: '#818cf8', marginTop: 0 }}>📋 Os Meus Empréstimos Ativos (DEX)</h3>
-              {myDexLoans.map(loan => {
-  const isLast = loan.paymentsMade.add(1).eq(loan.deadline);
-  const paymentValue = isLast ? calculateFinalPayment(loan) : calculateInstallment(loan);
-  
-  return (
-    <div key={loan.id} style={{ background: '#0f172a', padding: '1rem', borderRadius: '6px', border: '1px solid #334155' }}>
-      <b style={{ color: '#fff' }}>ID: {loan.id}</b>
-      <p style={{ margin: '5px 0', fontSize: '0.9rem', color: '#cbd5e1' }}>
-        Capital Inicial: {ethers.utils.formatEther(loan.amount)} ETH
-      </p>
-      <p style={{ margin: '5px 0', fontSize: '0.9rem', color: '#cbd5e1' }}>
-        Prestações: {loan.paymentsMade.toString()} / {loan.deadline.toString()}
-      </p>
-      
-      {/* AQUI ESTÁ A NOVIDADE: */}
-      <div style={{ marginTop: '10px', padding: '8px', background: '#1e293b', borderRadius: '4px' }}>
-        <small style={{ color: '#94a3b8' }}>
-          {isLast ? "💰 Valor p/ pagamento final:" : "📅 Valor p/ prestação atual:"}
-        </small>
-        <div style={{ color: '#fbbf24', fontWeight: 'bold' }}>
-          {ethers.utils.formatEther(paymentValue)} ETH
-        </div>
-      </div>
-    </div>
-  );
-})}
+              
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem' }}>
+                {myDexLoans.length > 0 ? myDexLoans.map(loan => {
+                  const isLast = loan.paymentsMade.add(1).eq(loan.deadline);
+                  const paymentValue = isLast ? calculateFinalPayment(loan) : calculateInstallment(loan);
+                  
+                  return (
+                    <div key={loan.id} style={{ background: '#0f172a', padding: '1rem', borderRadius: '6px', border: '1px solid #334155', width: '260px' }}>
+                      <b style={{ color: '#fff' }}>ID: {loan.id.toString()}</b>
+                      <p style={{ margin: '5px 0', fontSize: '0.85rem', color: '#cbd5e1' }}>Capital: {ethers.utils.formatEther(loan.amount)} ETH</p>
+                      <p style={{ margin: '5px 0', fontSize: '0.85rem', color: '#cbd5e1' }}>Prestações: {loan.paymentsMade.toString()} / {loan.deadline.toString()}</p>
+                      <div style={{ marginTop: '10px', padding: '8px', background: '#1e293b', borderRadius: '4px' }}>
+                        <small style={{ color: '#94a3b8' }}>{isLast ? "💰 VALOR FINAL:" : "📅 PRESTAÇÃO ATUAL:"}</small>
+                        <div style={{ color: '#fbbf24', fontWeight: 'bold' }}>{ethers.utils.formatEther(paymentValue)} ETH</div>
+                      </div>
+                    </div>
+                  );
+                }) : <p style={{ color: '#94a3b8', fontSize: '0.9rem', margin: 0 }}>Não tens empréstimos Standard ativos neste momento.</p>}
+              </div>
             </div>
 
             <h3 style={{ color: '#6366f1' }}>1) DEX Market Exchange</h3>
@@ -2082,25 +2075,24 @@ const fetchMyLoans = async (userAddress, sig) => {
         {/* ----------------- SECTOR 3: PEER-TO-PEER PAWNING ----------------- */}
         {activeTab === 'p2p-pawn' && (
           <section>
-            {/* CAIXA DOS EMPRÉSTIMOS P2P SEMPRE VISÍVEL */}
+            {/* CAIXA DOS EMPRÉSTIMOS P2P */}
             <div style={{ background: '#064e3b', padding: '1.5rem', borderRadius: '8px', marginBottom: '2rem', border: '1px solid #059669' }}>
               <h3 style={{ color: '#34d399', marginTop: 0 }}>📋 Os Meus Pedidos P2P (NFT Collateral)</h3>
-              {myP2pLoans.length > 0 ? (
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                  {myP2pLoans.map(loan => (
-                    <div key={loan.id} style={{ background: '#022c22', padding: '1rem', borderRadius: '6px', border: '1px solid #065f46' }}>
-                      <b style={{ color: '#fff' }}>Loan ID: {loan.id}</b>
-                      <p style={{ margin: '5px 0', fontSize: '0.9rem', color: '#d1fae5' }}>Token ID Bloqueado: {loan.tokenId.toString()}</p>
-                      <p style={{ margin: '5px 0', fontSize: '0.9rem', color: '#d1fae5' }}>Dívida (ETH): {ethers.utils.formatEther(loan.ethRequested)} ETH</p>
-                      <p style={{ margin: '5px 0', fontSize: '0.9rem', color: '#d1fae5' }}>
-                        Estado: {loan.active ? (loan.funded ? "🟢 Financiado" : "🟠 A aguardar Provedor") : "🔴 Fechado/Liquidado"}
-                      </p>
+              
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem' }}>
+                {myP2pLoans.length > 0 ? myP2pLoans.map(loan => (
+                  <div key={loan.id} style={{ background: '#022c22', padding: '1rem', borderRadius: '6px', border: '1px solid #065f46', width: '260px' }}>
+                    <b style={{ color: '#fff' }}>Loan ID: {loan.id.toString()}</b>
+                    <p style={{ margin: '5px 0', fontSize: '0.85rem', color: '#d1fae5' }}>Token ID Bloqueado: {loan.tokenId.toString()}</p>
+                    <p style={{ margin: '5px 0', fontSize: '0.85rem', color: '#d1fae5' }}>Dívida (ETH): {ethers.utils.formatEther(loan.ethRequested)} ETH</p>
+                    <div style={{ marginTop: '10px', padding: '6px', background: '#064e3b', borderRadius: '4px' }}>
+                       <p style={{ margin: 0, fontSize: '0.8rem', color: '#d1fae5', fontWeight: 'bold' }}>
+                         Estado: {loan.active ? (loan.funded ? "🟢 Financiado" : "🟠 A aguardar Provedor") : "🔴 Fechado/Liquidado"}
+                       </p>
                     </div>
-                  ))}
-                </div>
-              ) : (
-                <p style={{ color: '#a7f3d0', fontSize: '0.9rem', margin: 0 }}>Não tens pedidos P2P ativos neste momento.</p>
-              )}
+                  </div>
+                )) : <p style={{ color: '#a7f3d0', fontSize: '0.9rem', margin: 0 }}>Não tens pedidos P2P ativos neste momento.</p>}
+              </div>
             </div>
 
             <h3 style={{ color: '#10b981' }}>5) NFT Liquidity Matching Engine</h3>
@@ -2166,4 +2158,5 @@ const fetchMyLoans = async (userAddress, sig) => {
       </div>
     </div>
   );
+
 }

@@ -1,5 +1,24 @@
 {
-  "nfts": [],
+  "nfts": [
+    {
+      "id": 1,
+      "creator": "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
+      "tokenUri": "ipfs://imagem-teste-1",
+      "timestamp": "2026-05-21T16:46:42.193Z"
+    },
+    {
+      "id": 2,
+      "creator": "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
+      "tokenUri": "efwefw",
+      "timestamp": "2026-05-21T17:00:15.047Z"
+    },
+    {
+      "id": 3,
+      "creator": "0xbDA5747bFD65F08deb54cb465eB87D40e51B197E",
+      "tokenUri": "cahoaoh",
+      "timestamp": "2026-05-21T17:04:48.662Z"
+    }
+  ],
   "loansHistory": [],
   "users": [
     {
