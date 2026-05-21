@@ -128,25 +128,21 @@ contract DecentralizedFinance is ERC20 {
         require(msg.sender == currentLoan.borrower, "Nao e o dono.");
 
         uint256 limitTime = currentLoan.lastPaymentTime + currentLoan.paymentCycle;
-        if (block.timestamp > limitTime) {
-            emit loanFinished(currentLoan.borrower, currentLoan.amount);
-            delete loans[loanId];
-            revert("Prazo ultrapassado. Colateral liquidado.");
-        }
+        require(block.timestamp <= limitTime, "Prazo ultrapassado."); // Simplificado
 
         uint256 cyclePayment = (currentLoan.amount * currentLoan.interest) / (100 * currentLoan.deadline);
         bool isLastPayment = (currentLoan.paymentsMade == currentLoan.deadline - 1);
 
-        if (isLastPayment) {
-            // FIXED BUG: totalDue properly sums the final interest payment and the principal refund
-            uint256 totalDue = cyclePayment + currentLoan.amount;
-            if (msg.value != totalDue) revert ValorIncorreto(totalDue, msg.value);
+        uint256 amountToPay = isLastPayment ? (cyclePayment + currentLoan.amount) : cyclePayment;
 
+        // O SEGREDO ESTÁ AQUI: Usa >= para ser flexível
+        require(msg.value >= amountToPay, "Valor insuficiente.");
+
+        if (isLastPayment) {
             _transfer(address(this), currentLoan.borrower, currentLoan.collateral);
             emit loanFinished(currentLoan.borrower, currentLoan.amount);
             delete loans[loanId];
         } else {
-            if (msg.value != cyclePayment) revert ValorIncorreto(cyclePayment, msg.value);
             currentLoan.paymentsMade++;
             currentLoan.lastPaymentTime = block.timestamp;
         }
