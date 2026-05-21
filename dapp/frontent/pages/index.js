@@ -1,224 +1,220 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
+import { useRouter } from 'next/router';
 import { ethers } from 'ethers';
 
-// Paste your compiled contract ABIs here after compiling in Remix/Hardhat
-const DEX_ABI = [
-  "function buyDex() external payable",
-  "function sellDex(uint256 dexAmount) external",
-  "function loan(uint256 dexAmount, uint256 deadline) external returns (uint256)",
-  "function makePayment(uint256 loanId) external payable",
-  "function balanceOf(address account) external view returns (uint256)",
-  "function dexSwapRate() external view returns (uint256)"
-];
-
-const NFT_MARKET_ABI = [
-  "function mintNFT(string memory tokenURI) external returns (uint256)",
-  "function listNFT(uint256 tokenId, uint256 price, bool isDexPayment) external",
-  "function buyNFT(uint256 tokenId) external payable",
-  "function requestNftLoan(uint256 tokenId, uint256 ethRequested, uint256 durationSecs) external",
-  "function fundNftLoan(uint256 loanId) external",
-  "function repayNftLoan(uint256 loanId) external payable",
-  "function approve(address to, uint256 tokenId) external"
-];
-
-const DEX_ADDRESS = "d9145CCE52D386f254917e481eB44e9943F39138";
-const NFT_MARKET_ADDRESS = "d8b934580fcE35a11B58C6D73aDeE468a2833fa8";
-
-export default function Home() {
-  const [provider, setProvider] = useState(null);
-  const [signer, setSigner] = useState(null);
-  const [account, setAccount] = useState('');
-  const [activeTab, setActiveTab] = useState('dex');
+export default function LandingPage() {
+  const router = useRouter();
+  const [view, setView] = useState('landing'); // landing, login, register, forgot, connect_wallet
   
-  // Form/UI States
-  const [dexAmount, setDexAmount] = useState('');
-  const [ethAmount, setEthAmount] = useState('');
-  const [loanCollateral, setLoanCollateral] = useState('');
-  const [loanDeadline, setLoanDeadline] = useState('');
-  const [paymentLoanId, setPaymentLoanId] = useState('');
-  const [paymentValue, setPaymentValue] = useState('');
-  
-  // NFT States
-  const [nftUri, setNftUri] = useState('');
-  const [listTokenId, setListTokenId] = useState('');
-  const [listPrice, setListPrice] = useState('');
-  const [isDexPayment, setIsDexPayment] = useState(false);
-  const [p2pLoanId, setP2pLoanId] = useState('');
-  const [p2pEthRequest, setP2pEthRequest] = useState('');
+  // Form States
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [loggedInUser, setLoggedInUser] = useState(null);
 
-  useEffect(() => {
-    if (window.ethereum) {
-      const prov = new ethers.providers.Web3Provider(window.ethereum);
-      setProvider(prov);
-    }
-  }, []);
-
-  const connectWallet = async () => {
-    if (!provider) return alert('MetaMask not detected!');
-    await provider.send("eth_requestAccounts", []);
-    const sig = provider.getSigner();
-    setSigner(sig);
-    const addr = await sig.getAddress();
-    setAccount(addr);
-  };
-
-  // --- Contract Interaction Actions ---
-  const handleBuyDex = async () => {
+  // Ações de Autenticação Off-chain
+  const handleRegister = async (e) => {
+    e.preventDefault();
     try {
-      const contract = new ethers.Contract(DEX_ADDRESS, DEX_ABI, signer);
-      const tx = await contract.buyDex({ value: ethers.utils.parseEther(ethAmount) });
-      await tx.wait();
-      alert('DEX Tokens purchased successfully!');
-    } catch (err) { alert(err.message); }
-  };
-
-  const handleSellDex = async () => {
-    try {
-      const contract = new ethers.Contract(DEX_ADDRESS, DEX_ABI, signer);
-      const tx = await contract.sellDex(ethers.utils.parseEther(dexAmount));
-      await tx.wait();
-      alert('DEX Tokens sold successfully!');
-    } catch (err) { alert(err.message); }
-  };
-
-  const handleTakeLoan = async () => {
-    try {
-      const contract = new ethers.Contract(DEX_ADDRESS, DEX_ABI, signer);
-      const tx = await contract.loan(ethers.utils.parseEther(loanCollateral), loanDeadline);
-      await tx.wait();
-      alert('Loan initiated!');
-    } catch (err) { alert(err.message); }
-  };
-
-  const handleMakePayment = async () => {
-    try {
-      const contract = new ethers.Contract(DEX_ADDRESS, DEX_ABI, signer);
-      const tx = await contract.makePayment(paymentLoanId, { value: ethers.utils.parseEther(paymentValue) });
-      await tx.wait();
-      alert('Payment processed!');
-    } catch (err) { alert(err.message); }
-  };
-
-  const handleMintNft = async () => {
-    try {
-      const contract = new ethers.Contract(NFT_MARKET_ADDRESS, NFT_MARKET_ABI, signer);
-      const tx = await contract.mintNFT(nftUri);
-      const receipt = await tx.wait();
-      
-      // Notify off-chain database about the newly minted token
-      await fetch('http://localhost:3001/api/nfts', {
+      const res = await fetch('http://localhost:3001/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ creator: account, tokenUri: nftUri })
+        body: JSON.stringify({ username, password })
       });
-      alert('NFT Minted and cached to server state!');
+      const data = await res.json();
+      if (data.error) return alert(data.error);
+      
+      alert(data.message);
+      setView('login');
     } catch (err) { alert(err.message); }
+  };
+
+  const handleLogin = async (e) => {
+    e.preventDefault();
+    try {
+      const res = await fetch('http://localhost:3001/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password })
+      });
+      const data = await res.json();
+      if (data.error) return alert(data.error);
+
+      setLoggedInUser(data.user.username);
+      // Avança para a etapa de conectar a carteira conforme o fluxo do enunciado
+      setView('connect_wallet');
+    } catch (err) { alert(err.message); }
+  };
+
+  // Fluxo de conexão Web3 e associação à base de dados
+  const handleConnectWallet = async () => {
+    if (!window.ethereum) return alert('Por favor, instala a MetaMask!');
+    try {
+      const provider = new ethers.providers.Web3Provider(window.ethereum);
+      await provider.send("eth_requestAccounts", []);
+      const signer = provider.getSigner();
+      const walletAddress = await signer.getAddress();
+
+      // Envia para o backend para associar a carteira à conta logada
+      const res = await fetch('http://localhost:3001/api/auth/connect-wallet', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: loggedInUser, walletAddress })
+      });
+      const data = await res.json();
+      
+      alert(`Sucesso! Carteira ${walletAddress.substring(0,6)}... associada à conta ${loggedInUser}`);
+      
+      // Salva a sessão local simples e redireciona para o painel principal
+      localStorage.setItem('user', JSON.stringify(data.user));
+      router.push('/dashboard');
+    } catch (err) { alert(err.message); }
+  };
+
+  // Estilos inline futuristas Web3 Dark elegante
+  const styles = {
+    container: {
+      background: 'radial-gradient(circle at center, #1a1a3a 0%, #0b0b12 100%)',
+      minHeight: '100vh',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      fontFamily: '"Segoe UI", Roboto, sans-serif',
+      color: '#fff',
+      padding: '1rem'
+    },
+    card: {
+      background: 'rgba(20, 20, 35, 0.85)',
+      border: '1px solid #3a3a5c',
+      borderRadius: '16px',
+      padding: '2.5rem',
+      width: '100%',
+      maxWidth: '420px',
+      boxShadow: '0 8px 32px 0 rgba(0, 0, 0, 0.5)',
+      backdropFilter: 'blur(8px)',
+      textAlign: 'center'
+    },
+    input: {
+      width: '100%',
+      padding: '0.8rem',
+      margin: '0.6rem 0',
+      background: '#0d0d1a',
+      border: '1px solid #44446c',
+      borderRadius: '8px',
+      color: '#fff',
+      fontSize: '1rem'
+    },
+    btnPrimary: {
+      width: '100%',
+      padding: '0.8rem',
+      background: 'linear-gradient(90deg, #6366f1 0%, #a855f7 100%)',
+      border: 'none',
+      borderRadius: '8px',
+      color: '#fff',
+      fontWeight: 'bold',
+      cursor: 'pointer',
+      marginTop: '1rem',
+      fontSize: '1rem',
+      transition: 'transform 0.2s'
+    },
+    btnSocial: {
+      width: '100%',
+      padding: '0.6rem',
+      background: '#1e1e38',
+      border: '1px solid #3a3a5c',
+      borderRadius: '8px',
+      color: '#ccc',
+      cursor: 'pointer',
+      margin: '0.4rem 0',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: '0.5rem'
+    },
+    link: {
+      color: '#a855f7',
+      cursor: 'pointer',
+      textDecoration: 'underline',
+      fontSize: '0.9rem'
+    }
   };
 
   return (
-    <div style={{ padding: '2rem', fontFamily: 'sans-serif', maxWidth: '900px', margin: '0 auto' }}>
-      <h1>Decentralized Finance & NFT Pawning Hub</h1>
-      <button onClick={connectWallet} style={{ padding: '0.5rem 1rem', marginBottom: '1rem' }}>
-        {account ? `Connected: ${account.substring(0,6)}...` : 'Connect Wallet'}
-      </button>
+    <div style={styles.container}>
+      <div style={styles.card}>
+        {/* LOGO DA PLATAFORMA */}
+        <div style={{ fontSize: '3rem', marginBottom: '0.5rem' }}>🌌</div>
+        <h2 style={{ marginBottom: '1.5rem', fontWeight: '800', letterSpacing: '1px' }}>Block App</h2>
 
-      {/* Tab Selectors */}
-      <div style={{ display: 'flex', gap: '1rem', borderBottom: '2px solid #ccc', paddingBottom: '0.5rem', marginBottom: '1.5rem' }}>
-        <button onClick={() => setActiveTab('dex')}>DEX Exchange & Loans</button>
-        <button onClick={() => setActiveTab('nft-market')}>NFT Marketplace</button>
-        <button onClick={() => setActiveTab('p2p-pawn')}>P2P NFT Pawn Loans</button>
+        {/* VISTA 1: LANDING INICIAL */}
+        {view === 'landing' && (
+          <div>
+            <p style={{ color: '#aaa', marginBottom: '2rem' }}>A nova era do Lending descentralizado de Ether e colaterais NFT.</p>
+            <button style={styles.btnPrimary} onClick={() => setView('login')}>Entrar na Plataforma</button>
+            <button style={{ ...styles.btnPrimary, background: '#252542', marginTop: '0.5rem' }} onClick={() => setView('register')}>Criar Nova Conta</button>
+          </div>
+        )}
+
+        {/* VISTA 2: LOGIN TRADICIONAL */}
+        {view === 'login' && (
+          <form onSubmit={handleLogin}>
+            <h3>Iniciar Sessão</h3>
+            <input style={styles.input} type="text" placeholder="Nome de Utilizador" required onChange={e => setUsername(e.target.value)} />
+            <input style={styles.input} type="password" placeholder="Palavra-passe" required onChange={e => setPassword(e.target.value)} />
+            
+            <span style={styles.link} onClick={() => setView('forgot')}>Esqueci-me da password</span>
+            
+            <button type="submit" style={styles.btnPrimary}>Login</button>
+            
+            <div style={{ margin: '1.5rem 0', color: '#666' }}>⎯⎯⎯ OU ⎯⎯⎯</div>
+            <button type="button" style={styles.btnSocial} onClick={() => alert('Integração Google Fictícia')}>🌐 Entrar com Google</button>
+            <button type="button" style={styles.btnSocial} onClick={() => alert('Integração Discord Fictícia')}>👾 Entrar com Discord</button>
+            
+            <p style={{ marginTop: '1.5rem', fontSize: '0.9rem' }}>Não tem conta? <span style={styles.link} onClick={() => setView('register')}>Registe-se</span></p>
+          </form>
+        )}
+
+        {/* VISTA 3: CRIAR CONTA (REGISTO) */}
+        {view === 'register' && (
+          <form onSubmit={handleRegister}>
+            <h3>Criar Conta Web3 off-chain</h3>
+            <input style={styles.input} type="text" placeholder="Escolha um Utilizador" required onChange={e => setUsername(e.target.value)} />
+            <input style={styles.input} type="password" placeholder="Defina a Palavra-passe" required onChange={e => setPassword(e.target.value)} />
+            
+            <button type="submit" style={styles.btnPrimary}>Registar e Avançar</button>
+            <p style={{ marginTop: '1.5rem', fontSize: '0.9rem' }}>Já tem conta? <span style={styles.link} onClick={() => setView('login')}>Faça Login</span></p>
+          </form>
+        )}
+
+        {/* VISTA 4: RECUPERAR PALAVRA-PASSE */}
+        {view === 'forgot' && (
+          <div>
+            <h3>Recuperar Password</h3>
+            <p style={{ color: '#aaa', fontSize: '0.9rem' }}>Insira o seu utilizador para redefinir as credenciais.</p>
+            <input style={styles.input} type="text" placeholder="Nome de Utilizador" />
+            <button style={styles.btnPrimary} onClick={() => { alert('Pedido de redefinição enviado!'); setView('login'); }}>Enviar Link</button>
+            <p style={{ marginTop: '1.5rem' }}><span style={styles.link} onClick={() => setView('login')}>Voltar ao Login</span></p>
+          </div>
+        )}
+
+        {/* VISTA 5: CONECTAR CARTEIRA (APÓS LOGIN - REQUISITO DO FLUXO DO ENUNCIADO) */}
+        {view === 'connect_wallet' && (
+          <div>
+            <h3 style={{ color: '#10b981' }}>✓ Autenticado como {loggedInUser}</h3>
+            <p style={{ color: '#aaa', fontSize: '0.9rem', marginBottom: '2rem' }}>Para interagir com o protocolo DeFi, associe a sua MetaMask à sua conta Nexus.</p>
+            <button style={{ ...styles.btnPrimary, background: 'linear-gradient(90deg, #f59e0b 0%, #d97706 100%)' }} onClick={handleConnectWallet}>
+              🦊 Conectar Carteira MetaMask
+            </button>
+          </div>
+        )}
       </div>
 
-      {/* Tab Content */}
-      {activeTab === 'dex' && (
-        <section>
-          <h2>DEX Market Exchange</h2>
-          <div style={{ display: 'flex', gap: '1rem', marginBottom: '2rem' }}>
-            <div>
-              <h3>Buy DEX</h3>
-              <input placeholder="ETH Amount" onChange={e => setEthAmount(e.target.value)} />
-              <button onClick={handleBuyDex}>Execute Buy</button>
-            </div>
-            <div>
-              <h3>Sell DEX</h3>
-              <input placeholder="DEX Amount" onChange={e => setDexAmount(e.target.value)} />
-              <button onClick={handleSellDex}>Execute Sell</button>
-            </div>
-          </div>
-          <hr/>
-          <h2>Standard Collateralized Lending Pool</h2>
-          <div style={{ display: 'flex', gap: '1rem' }}>
-            <div>
-              <h3>Request Loan</h3>
-              <input placeholder="DEX Collateral Amount" onChange={e => setLoanCollateral(e.target.value)} /><br/>
-              <input placeholder="Deadline Cycles (e.g. 3)" onChange={e => setLoanDeadline(e.target.value)} /><br/>
-              <button onClick={handleTakeLoan}>Process Loan</button>
-            </div>
-            <div>
-              <h3>Repay Installment</h3>
-              <input placeholder="Loan ID" onChange={e => setPaymentLoanId(e.target.value)} /><br/>
-              <input placeholder="ETH Payback Value" onChange={e => setPaymentValue(e.target.value)} /><br/>
-              <button onClick={handleMakePayment}>Submit Payment</button>
-            </div>
-          </div>
-        </section>
-      )}
-
-      {activeTab === 'nft-market' && (
-        <section>
-          <h2>NFT Forge & Showroom</h2>
-          <div style={{ marginBottom: '2rem' }}>
-            <h3>Mint Digital Collectible</h3>
-            <input placeholder="Metadata Content/URI String" style={{ width: '300px' }} onChange={e => setNftUri(e.target.value)} />
-            <button onClick={handleMintNft}>Forge Asset</button>
-          </div>
-          <div>
-            <h3>List Asset For Sale</h3>
-            <input placeholder="Token ID" onChange={e => setListTokenId(e.target.value)} /><br/>
-            <input placeholder="Target Asking Price" onChange={e => setListPrice(e.target.value)} /><br/>
-            <label>
-              <input type="checkbox" checked={isDexPayment} onChange={e => setIsDexPayment(e.target.checked)} /> Demand DEX Denomination
-            </label><br/>
-            <button onClick={async () => {
-              const contract = new ethers.Contract(NFT_MARKET_ADDRESS, NFT_MARKET_ABI, signer);
-              const appTx = await contract.approve(NFT_MARKET_ADDRESS, listTokenId);
-              await appTx.wait();
-              const tx = await contract.listNFT(listTokenId, ethers.utils.parseEther(listPrice), isDexPayment);
-              await tx.wait();
-              alert('NFT listed for sale.');
-            }}>List Item</button>
-          </div>
-        </section>
-      )}
-
-      {activeTab === 'p2p-pawn' && (
-        <section>
-          <h2>Peer-to-Peer NFT Loan matching</h2>
-          <div style={{ display: 'flex', gap: '1rem' }}>
-            <div>
-              <h3>Borrow Liquidity (Lock NFT)</h3>
-              <input placeholder="Token ID" onChange={e => setListTokenId(e.target.value)} /><br/>
-              <input placeholder="ETH Liquidity Requested" onChange={e => setP2pEthRequest(e.target.value)} /><br/>
-              <input placeholder="Loan Lifespan (Seconds)" onChange={e => setLoanDeadline(e.target.value)} /><br/>
-              <button onClick={async () => {
-                const contract = new ethers.Contract(NFT_MARKET_ADDRESS, NFT_MARKET_ABI, signer);
-                await (await contract.approve(NFT_MARKET_ADDRESS, listTokenId)).wait();
-                await (await contract.requestNftLoan(listTokenId, ethers.utils.parseEther(p2pEthRequest), loanDeadline)).wait();
-                alert('P2P Loan Request Registered.');
-              }}>Lock NFT & Request</button>
-            </div>
-            <div>
-              <h3>Provide Security (Back with DEX)</h3>
-              <input placeholder="Active Loan ID" onChange={e => setP2pLoanId(e.target.value)} /><br/>
-              <button onClick={async () => {
-                const contract = new ethers.Contract(NFT_MARKET_ADDRESS, NFT_MARKET_ABI, signer);
-                await (await contract.fundNftLoan(p2pLoanId)).wait();
-                alert('Loan Backed. Yield tracking online.');
-              }}>Back Loan</button>
-            </div>
-          </div>
-        </section>
-      )}
+      <style jsx global>{`
+        body {
+          margin: 0;
+          padding: 0;
+          background-color: #0b0b12;
+        }
+      `}</style>
     </div>
   );
 }

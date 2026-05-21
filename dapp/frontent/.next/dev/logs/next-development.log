@@ -1,7 +1,0 @@
-{"timestamp":"00:00:00.838","source":"Server","level":"LOG","message":""}
-{"timestamp":"00:00:10.363","source":"Browser","level":"WARN","message":"ObjectMultiplex - orphaned data for stream \"metamask-multichain-provider\""}
-{"timestamp":"00:00:10.381","source":"Server","level":"WARN","message":"[browser] \"\\u001b[33mObjectMultiplex - orphaned data for stream \\\"metamask-multichain-provider\\\"\\u001b[39m\" \"\\u001b[2m(http://localhost:3000/:1:67894)\\u001b[22m\""}
-{"timestamp":"00:00:10.381","source":"Browser","level":"WARN","message":"\u001b[33mObjectMultiplex - orphaned data for stream \"metamask-multichain-provider\"\u001b[39m"}
-{"timestamp":"00:00:10.383","source":"Browser","level":"WARN","message":"ObjectMultiplex - orphaned data for stream \"metamask-multichain-provider\""}
-{"timestamp":"00:00:10.384","source":"Server","level":"WARN","message":"[browser] \"\\u001b[33mObjectMultiplex - orphaned data for stream \\\"metamask-multichain-provider\\\"\\u001b[39m\" \"\\u001b[2m(http://localhost:3000/:1:67894)\\u001b[22m\""}
-{"timestamp":"00:00:10.384","source":"Browser","level":"WARN","message":"\u001b[33mObjectMultiplex - orphaned data for stream \"metamask-multichain-provider\"\u001b[39m"}
