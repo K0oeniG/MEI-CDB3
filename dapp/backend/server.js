@@ -2,10 +2,40 @@ const express = require('express');
 const cors = require('cors');
 const fs = require('fs');
 const path = require('path');
+const multer = require('multer'); // ADICIONADO: Importar o multer
 
 const app = express();
 app.use(cors());
 app.use(express.json());
+
+// ==========================================
+// CONFIGURAÇÃO DO UPLOAD DE IMAGENS (NOVO)
+// ==========================================
+
+// 1. Cria a pasta "uploads" automaticamente se não existir
+const uploadsDir = path.join(__dirname, 'uploads');
+if (!fs.existsSync(uploadsDir)) {
+    fs.mkdirSync(uploadsDir);
+}
+
+// 2. Diz ao Express para servir os ficheiros desta pasta publicamente
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
+// 3. Configura o Multer (Onde guardar e com que nome)
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, 'uploads/') 
+  },
+  filename: function (req, file, cb) {
+    cb(null, Date.now() + path.extname(file.originalname))
+  }
+});
+const upload = multer({ storage: storage });
+
+
+// ==========================================
+// BASE DE DADOS LOCAL
+// ==========================================
 
 // Definir o caminho da base de dados local
 const DB_FILE = path.join(__dirname, 'db.json');
@@ -15,16 +45,15 @@ if (!fs.existsSync(DB_FILE)) {
     fs.writeFileSync(DB_FILE, JSON.stringify({ users: [], nfts: [], loansHistory: [] }, null, 2));
 }
 
-// Funções auxiliares para ler e escrever na BD mais facilmente
+// Funções auxiliares para ler e escrever na BD
 const readDB = () => JSON.parse(fs.readFileSync(DB_FILE, 'utf8'));
 const writeDB = (data) => fs.writeFileSync(DB_FILE, JSON.stringify(data, null, 2));
 
 
 // ==========================================
-// 1. ROTAS DE AUTENTICAÇÃO (NOVAS)
+// 1. ROTAS DE AUTENTICAÇÃO
 // ==========================================
 
-// Rota de Registo de Utilizador
 app.post('/api/auth/register', (req, res) => {
   const { username, password } = req.body;
   const db = readDB();
@@ -43,7 +72,6 @@ app.post('/api/auth/register', (req, res) => {
   res.json({ message: "Conta criada com sucesso!", user: newUser });
 });
 
-// Rota de Login
 app.post('/api/auth/login', (req, res) => {
   const { username, password } = req.body;
   const db = readDB();
@@ -58,7 +86,6 @@ app.post('/api/auth/login', (req, res) => {
   res.json({ message: "Login efetuado com sucesso!", user });
 });
 
-// Rota para Associar a Carteira Crypto à Conta
 app.post('/api/auth/connect-wallet', (req, res) => {
   const { username, walletAddress } = req.body;
   const db = readDB();
@@ -78,8 +105,16 @@ app.post('/api/auth/connect-wallet', (req, res) => {
 
 
 // ==========================================
-// 2. ROTAS DE NFTS (DO TEU CÓDIGO ORIGINAL)
+// 2. ROTAS DE NFTS E UPLOADS
 // ==========================================
+
+// ROTA NOVA: Receber imagem do Frontend
+app.post('/api/upload', upload.single('nftImage'), (req, res) => {
+  if (!req.file) return res.status(400).json({ error: "Nenhuma imagem enviada" });
+  
+  const imageUrl = `http://localhost:3001/uploads/${req.file.filename}`;
+  res.json({ imageUrl: imageUrl });
+});
 
 // Get all tracked NFTs
 app.get('/api/nfts', (req, res) => {
@@ -105,6 +140,7 @@ app.post('/api/nfts', (req, res) => {
     writeDB(db);
     res.status(201).json(newNft);
 });
+
 
 // ==========================================
 // INICIAR SERVIDOR

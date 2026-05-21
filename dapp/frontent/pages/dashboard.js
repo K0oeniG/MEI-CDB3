@@ -1705,6 +1705,7 @@ const NFT_MARKET_ADDRESS = "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512";
 
 
 export default function Dashboard() {
+    const [nftFile, setNftFile] = useState(null);
   const [provider, setProvider] = useState(null);
   const [signer, setSigner] = useState(null);
   const [account, setAccount] = useState('');
@@ -1841,19 +1842,40 @@ const fetchMyLoans = async (userAddress, sig) => {
   };
 
   const handleMintNft = async () => {
-    try {
-      const contract = new ethers.Contract(NFT_MARKET_ADDRESS, NFT_MARKET_ABI, signer);
-      const tx = await contract.mintNFT(nftUri);
-      await tx.wait();
-      
-      await fetch('http://localhost:3001/api/nfts', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ creator: account, tokenUri: nftUri })
-      });
-      alert('NFT cunhado (minted) com sucesso!');
-    } catch (err) { alert(err.message); }
-  };
+  if (!nftFile) return alert('Por favor, seleciona uma imagem primeiro!');
+  
+  try {
+    // 1. Prepara a imagem para enviar para o backend
+    const formData = new FormData();
+    formData.append('nftImage', nftFile); // O nome tem de bater certo com o upload.single('nftImage')
+
+    // 2. Envia para o backend
+    const uploadRes = await fetch('http://localhost:3001/api/upload', {
+      method: 'POST',
+      body: formData
+    });
+    
+    const uploadData = await uploadRes.json();
+    if (!uploadData.imageUrl) throw new Error("Falha no upload da imagem");
+    
+    const finalUri = uploadData.imageUrl; // Link gerado: http://localhost:3001/uploads/12345.png
+
+    // 3. Forja o NFT na Blockchain com o Link
+    const contract = new ethers.Contract(NFT_MARKET_ADDRESS, NFT_MARKET_ABI, signer);
+    const tx = await contract.mintNFT(finalUri);
+    await tx.wait();
+    
+    // 4. Guarda na Base de Dados (opcional, como já tinhas)
+    await fetch('http://localhost:3001/api/nfts', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ creator: account, tokenUri: finalUri })
+    });
+
+    alert(`NFT forjado com sucesso!\nA tua arte está guardada em: ${finalUri}`);
+    setNftFile(null); // Limpa o formulário
+  } catch (err) { alert(err.message); }
+};
 
   const handleBuyNft = async () => {
     try {
@@ -1901,6 +1923,25 @@ const fetchMyLoans = async (userAddress, sig) => {
     // Última prestação = Valor da prestação + Capital (Amount)
     return calculateInstallment(loan).add(loan.amount);
   };
+
+  const handleTerminateLoan = async () => {
+  try {
+    const contract = new ethers.Contract(DEX_ADDRESS, DEX_ABI, signer);
+    const loan = await contract.loans(paymentLoanId); // Lê os dados
+    
+    // Calcula: Amount + Termination Fee
+    const totalToPay = loan.amount.add(loan.termination); 
+    
+    // Executa o término
+    const tx = await contract.terminateLoan(paymentLoanId, { value: totalToPay });
+    await tx.wait();
+    
+    alert('Empréstimo encerrado antecipadamente com sucesso!');
+    fetchMyLoans(account, signer);
+  } catch (err) { alert(err.message); }
+};
+
+
 return (
     <div style={{ background: '#0b0a12', color: '#eee', minHeight: '100vh', width: '100vw', margin: 0, padding: '2rem 1rem', boxSizing: 'border-box' }}>
       
@@ -1990,7 +2031,11 @@ return (
                 <input style={inputStyle} placeholder="Quantidade DEX Colateral" onChange={e => setLoanCollateral(e.target.value)} />
                 <input style={inputStyle} placeholder="Duração em Ciclos (Ex: 3)" onChange={e => setLoanDeadline(e.target.value)} />
                 <button style={{ ...btnStyle, background: '#10b981' }} onClick={handleTakeLoan}>Process Loan</button>
+                <button style={{ ...btnStyle, background: '#ef4444', marginLeft: '10px' }} onClick={handleTerminateLoan}>
+  Encerrar Totalmente
+</button>
               </div>
+
               <div style={cardStyle}>
                 <h4>Repay Installment / Early Close</h4>
                 <input style={inputStyle} placeholder="ID do Empréstimo" onChange={e => setPaymentLoanId(e.target.value)} />
@@ -2007,10 +2052,18 @@ return (
             <h3 style={{ color: '#a855f7' }}>3) NFT Base Forge (Mint / Burn)</h3>
             <div style={{ display: 'flex', gap: '1.5rem', marginBottom: '2rem' }}>
               <div style={cardStyle}>
-                <h4>Forge Digital Collectible (Mint)</h4>
-                <input style={inputStyle} placeholder="Metadata String / URI Content" onChange={e => setNftUri(e.target.value)} />
-                <button style={{ ...btnStyle, background: '#8b5cf6' }} onClick={handleMintNft}>Forge Asset</button>
-              </div>
+  <h4>Forge Digital Collectible (Mint)</h4>
+  {/* Novo input de ficheiro */}
+  <input 
+    type="file" 
+    accept="image/*" 
+    style={{ ...inputStyle, background: '#1e1e2d', cursor: 'pointer' }} 
+    onChange={e => setNftFile(e.target.files[0])} 
+  />
+  <button style={{ ...btnStyle, background: '#8b5cf6', width: '100%' }} onClick={handleMintNft}>
+    Forge Asset (Upload + Mint)
+  </button>
+</div>
               <div style={cardStyle}>
                 <h4>Destroy Collectible (Burn)</h4>
                 <input style={inputStyle} placeholder="Token ID para incinerar" onChange={e => setBurnTokenId(e.target.value)} />
