@@ -1705,11 +1705,18 @@ const NFT_MARKET_ADDRESS = "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512";
 
 
 export default function Dashboard() {
+  
+
+    const [myNfts, setMyNfts] = useState([]);
     const [nftFile, setNftFile] = useState(null);
   const [provider, setProvider] = useState(null);
   const [signer, setSigner] = useState(null);
   const [account, setAccount] = useState('');
   const [activeTab, setActiveTab] = useState('dex');
+  const [marketListings, setMarketListings] = useState([]);
+const [activeAuctions, setActiveAuctions] = useState([]);
+const [p2pTab, setP2pTab] = useState('market'); // 'market', 'borrower', ou 'lender'
+const [allP2pLoans, setAllP2pLoans] = useState([]);
   
   // Informação de Sessão Off-Chain e Blockchain
   const [sessionUser, setSessionUser] = useState(null);
@@ -1768,7 +1775,10 @@ export default function Dashboard() {
     setAccount(addr);
     updateDexBalance(addr, sig);
     fetchMyLoans(addr, sig);
+    fetchMarketData(addr, sig);
   };
+
+
 
   const updateDexBalance = async (addr, sig) => {
     try {
@@ -1877,6 +1887,64 @@ const fetchMyLoans = async (userAddress, sig) => {
   } catch (err) { alert(err.message); }
 };
 
+const fetchMarketData = async (userAddress, sig) => {
+    try {
+      const contract = new ethers.Contract(NFT_MARKET_ADDRESS, NFT_MARKET_ABI, sig || signer);
+      const vendas = [];
+      const leiloes = [];
+      const foundAllP2p = [];
+      const meusNfts = []; 
+
+      // Procura nos primeiros 50 NFTs
+      for (let i = 1; i <= 50; i++) {
+        
+        // 1. VERIFICAR A TUA COLEÇÃO (Isolado)
+        try {
+          const owner = await contract.ownerOf(i);
+          if (owner.toLowerCase() === userAddress.toLowerCase()) {
+            const uri = await contract.tokenURI(i);
+            meusNfts.push({ tokenId: i, uri });
+          }
+        } catch (e) { /* Token não existe, passa à frente */ }
+
+        // 2. LER VENDAS DIRETAS (Filtra os que já foram vendidos!)
+        try {
+          const listing = await contract.listings(i);
+          // Adicionámos o listing.sold === false para não mostrar o que já foi comprado!
+          if (listing.price && listing.price.gt(0) && listing.sold === false) {
+            const uri = await contract.tokenURI(i);
+            vendas.push({ tokenId: i, price: listing.price, isDexPayment: listing.isDexPayment, uri });
+          }
+        } catch (e) { /* Erro a ler venda, ignora */ }
+
+        // 3. LER LEILÕES
+        try {
+          const auction = await contract.auctions(i);
+          if (auction.minPrice && auction.minPrice.gt(0) && auction.active === true) {
+            const uri = await contract.tokenURI(i);
+            leiloes.push({ tokenId: i, minPrice: auction.minPrice, endTime: auction.endTime, uri });
+          }
+        } catch (e) { /* Erro a ler leilão, ignora */ }
+
+        // 4. LER P2P
+        try {
+          const p2p = await contract.nftLoans(i);
+          if (p2p.ethRequested && p2p.ethRequested.gt(0)) {
+            let uri = "";
+            try { uri = await contract.tokenURI(p2p.tokenId); } catch(err) {}
+            foundAllP2p.push({ id: i, uri, ...p2p });
+          }
+        } catch (e) { /* Erro a ler P2P, ignora */ }
+        
+      } // fim do loop
+      
+      setMarketListings(vendas);
+      setActiveAuctions(leiloes);
+      setAllP2pLoans(foundAllP2p);
+      setMyNfts(meusNfts); 
+    } catch (err) { console.error("Erro geral a ler mercado:", err); }
+  };
+
   const handleBuyNft = async () => {
     try {
       const contract = new ethers.Contract(NFT_MARKET_ADDRESS, NFT_MARKET_ABI, signer);
@@ -1910,10 +1978,11 @@ const fetchMyLoans = async (userAddress, sig) => {
     } catch (err) { alert(err.message); }
   };
 
-  const inputStyle = { display: 'block', marginBottom: '0.75rem', padding: '0.6rem', background: '#0a0a14', border: '1px solid #444', borderRadius: '6px', color: '#fff', width: '90%' };
-  const cardStyle = { padding: '1.25rem', border: '1px solid #2a2a3a', borderRadius: '10px', width: '50%', background: '#141423' };
-  const btnStyle = { padding: '0.6rem 1.2rem', background: '#4f46e5', color: '#fff', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer' };
-
+  const inputStyle = { display: 'block', marginBottom: '0.75rem', padding: '0.6rem', background: '#0a0a14', border: '1px solid #444', borderRadius: '6px', color: '#fff', width: '100%', boxSizing: 'border-box' };
+  
+  const cardStyle = { padding: '1.25rem', border: '1px solid #2a2a3a', borderRadius: '10px', background: '#141423', width: '100%', boxSizing: 'border-box' };
+  
+  const btnStyle = { padding: '0.6rem 1.2rem', background: '#4f46e5', color: '#fff', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', boxSizing: 'border-box' };
   const calculateInstallment = (loan) => {
     // Cálculo: (Amount * Interest) / (100 * Deadline)
     return loan.amount.mul(loan.interest).div(100 * loan.deadline);
@@ -2046,166 +2115,245 @@ return (
           </section>
         )}
 
-        {/* ----------------- SECTOR 2: NFT MARKETPLACE & AUCTIONS ----------------- */}
-        {activeTab === 'nft-market' && (
-          <section>
-            <h3 style={{ color: '#a855f7' }}>3) NFT Base Forge (Mint / Burn)</h3>
-            <div style={{ display: 'flex', gap: '1.5rem', marginBottom: '2rem' }}>
-              <div style={cardStyle}>
-  <h4>Forge Digital Collectible (Mint)</h4>
-  {/* Novo input de ficheiro */}
-  <input 
-    type="file" 
-    accept="image/*" 
-    style={{ ...inputStyle, background: '#1e1e2d', cursor: 'pointer' }} 
-    onChange={e => setNftFile(e.target.files[0])} 
-  />
-  <button style={{ ...btnStyle, background: '#8b5cf6', width: '100%' }} onClick={handleMintNft}>
-    Forge Asset (Upload + Mint)
-  </button>
-</div>
-              <div style={cardStyle}>
-                <h4>Destroy Collectible (Burn)</h4>
-                <input style={inputStyle} placeholder="Token ID para incinerar" onChange={e => setBurnTokenId(e.target.value)} />
-                <button style={{ ...btnStyle, background: '#b91c1c' }} onClick={handleBurnNft}>Incinerar NFT</button>
-              </div>
+       {/* ----------------- SECTOR 2: NFT MARKETPLACE & AUCTIONS ----------------- */}
+
+       {/* NOVO: A MINHA GALERIA PESSOAL */}
+            <h3 style={{ color: '#c084fc', marginTop: 0 }}>🖼️ A Minha Coleção Pessoal (Galeria)</h3>
+            <p style={{ color: '#aaa', fontSize: '0.9rem' }}>Estes são os NFTs que possuis atualmente na tua carteira. Usa os IDs indicados para listar para venda, criar leilões ou pedir empréstimos P2P.</p>
+            
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem', marginBottom: '3rem', background: '#131129', padding: '1rem', borderRadius: '10px', border: '1px solid #3b2d6b' }}>
+              {myNfts.length > 0 ? myNfts.map(nft => (
+                <div key={nft.tokenId} style={{ background: '#0b0a12', padding: '0.75rem', borderRadius: '8px', border: '1px solid #4c3799', width: '160px', textAlign: 'center' }}>
+                  <img src={nft.uri} alt={`NFT ${nft.tokenId}`} style={{ width: '100%', height: '130px', objectFit: 'cover', borderRadius: '6px', marginBottom: '8px', backgroundColor: '#000' }} />
+                  <span style={{ color: '#fff', fontSize: '0.85rem', fontWeight: 'bold', display: 'block' }}>ID do Token: <span style={{color: '#a855f7'}}>{nft.tokenId}</span></span>
+                </div>
+              )) : (
+                <p style={{ color: '#6b7280', fontSize: '0.9rem', margin: '10px' }}>Ainda não possuis nenhum NFT nesta carteira. Cria um no formulário abaixo!</p>
+              )}
             </div>
 
-            <h3 style={{ color: '#a855f7' }}>3) NFT Direct Market Sales</h3>
-            <div style={{ display: 'flex', gap: '1.5rem', marginBottom: '2rem' }}>
+        {activeTab === 'nft-market' && (
+          <section>
+            
+            {/* BOTÃO PARA ATUALIZAR GALERIA */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+               <h3 style={{ color: '#a855f7', margin: 0 }}>🛒 Montra de Vendas Diretas</h3>
+               <button style={{ ...btnStyle, background: '#4b5563' }} onClick={() => fetchMarketData(signer)}>🔄 Atualizar Galerias</button>
+            </div>
+
+            {/* GALERIA DE VENDAS DIRETAS */}
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem', marginBottom: '3rem' }}>
+              {marketListings.length > 0 ? marketListings.map(item => (
+                <div key={item.tokenId} style={{ background: '#1e1b4b', padding: '1rem', borderRadius: '8px', border: '1px solid #4338ca', width: '220px', textAlign: 'center' }}>
+                  <img src={item.uri} alt={`NFT ${item.tokenId}`} style={{ width: '100%', height: '180px', objectFit: 'cover', borderRadius: '6px', marginBottom: '10px', backgroundColor: '#000' }} />
+                  <b style={{ color: '#fff', display: 'block' }}>Token ID: {item.tokenId}</b>
+                  <p style={{ color: '#10b981', fontWeight: 'bold', margin: '10px 0' }}>
+                    {ethers.utils.formatEther(item.price)} {item.isDexPayment ? 'DEX' : 'ETH'}
+                  </p>
+                  <button style={{ ...btnStyle, background: '#2563eb', width: '100%' }} onClick={async () => {
+                    try {
+                      const c = new ethers.Contract(NFT_MARKET_ADDRESS, NFT_MARKET_ABI, signer);
+                      if(item.isDexPayment){
+                         const dex = new ethers.Contract(DEX_ADDRESS, DEX_ABI, signer);
+                         await (await dex.approve(NFT_MARKET_ADDRESS, item.price)).wait();
+                      }
+                      await (await c.buyNFT(item.tokenId, { value: item.isDexPayment ? 0 : item.price })).wait();
+                      alert('Comprado com sucesso!');
+                      fetchMarketData(signer);
+                    } catch(e) { alert(e.message); }
+                  }}>Adquirir Asset</button>
+                </div>
+              )) : <p style={{ color: '#aaa' }}>Não há NFTs listados para venda direta.</p>}
+            </div>
+
+            {/* GALERIA DE LEILÕES */}
+            <h3 style={{ color: '#d946ef' }}>🔨 Leilões a Decorrer</h3>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem', marginBottom: '3rem' }}>
+              {activeAuctions.length > 0 ? activeAuctions.map(auction => (
+                <div key={auction.tokenId} style={{ background: '#2e1065', padding: '1rem', borderRadius: '8px', border: '1px solid #c026d3', width: '220px', textAlign: 'center' }}>
+                  <img src={auction.uri} alt={`NFT ${auction.tokenId}`} style={{ width: '100%', height: '180px', objectFit: 'cover', borderRadius: '6px', marginBottom: '10px', backgroundColor: '#000' }} />
+                  <b style={{ color: '#fff', display: 'block' }}>Leilão ID: {auction.tokenId}</b>
+                  <p style={{ color: '#fbcfe8', fontSize: '0.85rem', margin: '5px 0' }}>Base: {ethers.utils.formatEther(auction.minPrice)} ETH</p>
+                  
+                  {/* INPUT PARA LICITAÇÃO DIRETA NO CARTÃO */}
+                  <input id={`bid-${auction.tokenId}`} style={{ ...inputStyle, width: '100%', boxSizing: 'border-box', marginTop: '10px' }} placeholder="Valor (ETH)" />
+                  <button style={{ ...btnStyle, background: '#d946ef', width: '100%', marginTop: '5px' }} onClick={async () => {
+                     try {
+                       const val = document.getElementById(`bid-${auction.tokenId}`).value;
+                       const c = new ethers.Contract(NFT_MARKET_ADDRESS, NFT_MARKET_ABI, signer);
+                       await (await c.placeBid(auction.tokenId, { value: ethers.utils.parseEther(val) })).wait();
+                       alert('Licitação registada!');
+                     } catch(e) { alert(e.message); }
+                  }}>Fazer Licitação</button>
+                </div>
+              )) : <p style={{ color: '#aaa' }}>Nenhum leilão ativo neste momento.</p>}
+            </div>
+
+            {/* MANTER AS CAIXAS DE ADMINISTRAÇÃO (Mint, List, Open Auction) */}
+            <h3 style={{ color: '#a855f7', borderTop: '1px solid #333', paddingTop: '2rem' }}>⚙️ Ferramentas de Criador & Vendedor</h3>
+            
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1.5rem', marginBottom: '2rem', width: '100%' }}>
+              <div style={cardStyle}>
+                <h4>Forge Digital Collectible (Mint)</h4>
+                {/* Aqui colocas o teu novo input de ficheiro (file) e o botão com o handleMintNft que fizemos no passo 2 */}
+                <input type="file" accept="image/*" style={{ ...inputStyle, background: '#1e1e2d', cursor: 'pointer' }} onChange={e => setNftFile(e.target.files[0])} />
+                <button style={{ ...btnStyle, background: '#8b5cf6', width: '100%' }} onClick={handleMintNft}>Forge Asset</button>
+              </div>
+              
               <div style={cardStyle}>
                 <h4>List Asset For Fixed Sale</h4>
                 <input style={inputStyle} placeholder="Token ID" onChange={e => setListTokenId(e.target.value)} />
-                <input style={inputStyle} placeholder="Preço Alvo Demandado" onChange={e => setListPrice(e.target.value)} />
+                <input style={inputStyle} placeholder="Preço (ETH ou DEX)" onChange={e => setListPrice(e.target.value)} />
                 <label style={{ display: 'block', marginBottom: '1rem', fontSize: '0.9rem' }}>
-                  <input type="checkbox" checked={isDexPayment} onChange={e => setIsDexPayment(e.target.checked)} /> Exigir Liquidação em DEX
+                  <input type="checkbox" checked={isDexPayment} onChange={e => setIsDexPayment(e.target.checked)} /> Exigir DEX
                 </label>
-                <button style={{ ...btnStyle, background: '#10b981' }} onClick={async () => {
+                <button style={{ ...btnStyle, background: '#10b981', width: '100%' }} onClick={async () => {
                   const contract = new ethers.Contract(NFT_MARKET_ADDRESS, NFT_MARKET_ABI, signer);
                   await (await contract.approve(NFT_MARKET_ADDRESS, listTokenId)).wait();
                   await (await contract.listNFT(listTokenId, ethers.utils.parseEther(listPrice), isDexPayment)).wait();
-                  alert('NFT listado para venda direta.');
-                }}>Publicar Item</button>
+                  alert('Listado com sucesso!');
+                  fetchMarketData(signer);
+                }}>Publicar Venda</button>
               </div>
-              <div style={cardStyle}>
-                <h4>Acquire Listed NFT (Buy Direct)</h4>
-                <input style={inputStyle} placeholder="Token ID pretendido" onChange={e => setBuyTokenId(e.target.value)} />
-                <button style={{ ...btnStyle, background: '#2563eb' }} onClick={handleBuyNft}>Adquirir Asset</button>
-              </div>
-            </div>
 
-            <h3 style={{ color: '#a855f7' }}>4) NFT Auctions Portal (Open-Bidding)</h3>
-            <div style={{ display: 'flex', gap: '1.5rem' }}>
               <div style={cardStyle}>
-                <h4>Inaugurar Leilão Ativo</h4>
+                <h4>Inaugurar Leilão</h4>
                 <input style={inputStyle} placeholder="Token ID" onChange={e => setAuctionTokenId(e.target.value)} />
-                <input style={inputStyle} placeholder="Preço Mínimo Inicial (ETH)" onChange={e => setAuctionMinPrice(e.target.value)} />
-                <input style={inputStyle} placeholder="Duração Total (Segundos)" onChange={e => setAuctionDuration(e.target.value)} />
-                <button style={{ ...btnStyle, background: '#d946ef' }} onClick={async () => {
+                <input style={inputStyle} placeholder="Preço Base (ETH)" onChange={e => setAuctionMinPrice(e.target.value)} />
+                <input style={inputStyle} placeholder="Segundos" onChange={e => setAuctionDuration(e.target.value)} />
+                <button style={{ ...btnStyle, background: '#d946ef', width: '100%' }} onClick={async () => {
                   const contract = new ethers.Contract(NFT_MARKET_ADDRESS, NFT_MARKET_ABI, signer);
                   await (await contract.approve(NFT_MARKET_ADDRESS, auctionTokenId)).wait();
                   await (await contract.startAuction(auctionTokenId, ethers.utils.parseEther(auctionMinPrice), auctionDuration)).wait();
-                  alert('Leilão aberto para licitações!');
+                  alert('Leilão aberto!');
+                  fetchMarketData(signer);
                 }}>Abrir Leilão</button>
-              </div>
-              <div style={cardStyle}>
-                <h4>Colocar Licitacão (Bid) & Fecho</h4>
-                <input style={inputStyle} placeholder="Token ID do Leilão" onChange={e => setBidTokenId(e.target.value)} />
-                <input style={inputStyle} placeholder="Montante da Licitação (ETH)" onChange={e => setBidAmount(e.target.value)} />
-                <button style={{ ...btnStyle, background: '#3b82f6', marginBottom: '1rem', display: 'block' }} onClick={async () => {
-                  const contract = new ethers.Contract(NFT_MARKET_ADDRESS, NFT_MARKET_ABI, signer);
-                  await (await contract.placeBid(bidTokenId, { value: ethers.utils.parseEther(bidAmount) })).wait();
-                  alert('Licitação registada!');
-                }}>Submeter Licitacão</button>
-                
-                <input style={inputStyle} placeholder="Token ID para encerrar" onChange={e => setEndAuctionTokenId(e.target.value)} />
-                <button style={{ ...btnStyle, background: '#4b5563' }} onClick={handleEndAuction}>Finalizar Leilão Expirado</button>
               </div>
             </div>
           </section>
         )}
-
-        {/* ----------------- SECTOR 3: PEER-TO-PEER PAWNING ----------------- */}
+        
+       {/* ----------------- SECTOR 3: PEER-TO-PEER PAWNING ----------------- */}
         {activeTab === 'p2p-pawn' && (
           <section>
-            {/* CAIXA DOS EMPRÉSTIMOS P2P */}
-            <div style={{ background: '#064e3b', padding: '1.5rem', borderRadius: '8px', marginBottom: '2rem', border: '1px solid #059669' }}>
-              <h3 style={{ color: '#34d399', marginTop: 0 }}>📋 Os Meus Pedidos P2P (NFT Collateral)</h3>
-              
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem' }}>
-                {myP2pLoans.length > 0 ? myP2pLoans.map(loan => (
-                  <div key={loan.id} style={{ background: '#022c22', padding: '1rem', borderRadius: '6px', border: '1px solid #065f46', width: '260px' }}>
-                    <b style={{ color: '#fff' }}>Loan ID: {loan.id.toString()}</b>
-                    <p style={{ margin: '5px 0', fontSize: '0.85rem', color: '#d1fae5' }}>Token ID Bloqueado: {loan.tokenId.toString()}</p>
-                    <p style={{ margin: '5px 0', fontSize: '0.85rem', color: '#d1fae5' }}>Dívida (ETH): {ethers.utils.formatEther(loan.ethRequested)} ETH</p>
-                    <div style={{ marginTop: '10px', padding: '6px', background: '#064e3b', borderRadius: '4px' }}>
-                       <p style={{ margin: 0, fontSize: '0.8rem', color: '#d1fae5', fontWeight: 'bold' }}>
-                         Estado: {loan.active ? (loan.funded ? "🟢 Financiado" : "🟠 A aguardar Provedor") : "🔴 Fechado/Liquidado"}
-                       </p>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+               <h3 style={{ color: '#34d399', margin: 0 }}>🤝 Peer-to-Peer NFT Pawning</h3>
+               <button style={{ ...btnStyle, background: '#064e3b' }} onClick={() => fetchMarketData(signer)}>🔄 Atualizar Dados</button>
+            </div>
+
+            {/* SUB-TABS P2P */}
+            <div style={{ display: 'flex', gap: '1rem', borderBottom: '1px solid #1f2937', paddingBottom: '1rem', marginBottom: '2rem' }}>
+              <button onClick={() => setP2pTab('market')} style={{ ...btnStyle, background: p2pTab === 'market' ? '#10b981' : '#1e293b' }}>🏦 Mercado (Apoiar Projetos)</button>
+              <button onClick={() => setP2pTab('borrower')} style={{ ...btnStyle, background: p2pTab === 'borrower' ? '#3b82f6' : '#1e293b' }}>📥 Os Meus Pedidos</button>
+              <button onClick={() => setP2pTab('lender')} style={{ ...btnStyle, background: p2pTab === 'lender' ? '#8b5cf6' : '#1e293b' }}>💼 Os Meus Investimentos</button>
+            </div>
+
+            {/* ABA 1: MERCADO (Pedidos dos Outros à espera de financiamento) */}
+            {p2pTab === 'market' && (
+              <div>
+                <p style={{ color: '#a7f3d0', marginBottom: '1.5rem' }}>Projetos da comunidade a aguardar liquidez. Fornece ETH e retém DEX como garantia.</p>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1.5rem' }}>
+                  {allP2pLoans.filter(l => l.active && !l.funded && l.borrower.toLowerCase() !== account.toLowerCase()).map(loan => (
+                    <div key={loan.id} style={{ background: '#022c22', padding: '1rem', borderRadius: '8px', border: '1px solid #059669', width: '240px', textAlign: 'center' }}>
+                      {loan.uri && <img src={loan.uri} alt="NFT Colateral" style={{ width: '100%', height: '140px', objectFit: 'cover', borderRadius: '6px', marginBottom: '10px' }} />}
+                      <b style={{ color: '#fff', display: 'block' }}>Loan ID: {loan.id.toString()}</b>
+                      <p style={{ color: '#d1fae5', margin: '10px 0' }}>Requisitado: <b style={{color: '#fbbf24'}}>{ethers.utils.formatEther(loan.ethRequested)} ETH</b></p>
+                      
+                      <button style={{ ...btnStyle, background: '#10b981', width: '100%' }} onClick={async () => {
+                        try {
+                          const contract = new ethers.Contract(NFT_MARKET_ADDRESS, NFT_MARKET_ABI, signer);
+                          const dexContract = new ethers.Contract(DEX_ADDRESS, DEX_ABI, signer);
+                          await (await dexContract.approve(NFT_MARKET_ADDRESS, loan.dexRequired)).wait();
+                          await (await contract.fundNftLoan(loan.id, { value: loan.ethRequested })).wait();
+                          alert('Crédito concedido!');
+                          fetchMarketData(signer);
+                        } catch(e) { alert(e.message); }
+                      }}>Apoiar com Liquidez</button>
                     </div>
+                  ))}
+                  {allP2pLoans.filter(l => l.active && !l.funded && l.borrower.toLowerCase() !== account.toLowerCase()).length === 0 && <p style={{ color: '#aaa' }}>Não há pedidos de financiamento ativos no mercado.</p>}
+                </div>
+              </div>
+            )}
+
+            {/* ABA 2: OS MEUS PEDIDOS (Onde tu pediste dinheiro) */}
+            {p2pTab === 'borrower' && (
+              <div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1.5rem', marginBottom: '2rem' }}>
+                  {allP2pLoans.filter(l => l.borrower.toLowerCase() === account.toLowerCase()).map(loan => (
+                    <div key={loan.id} style={{ background: '#1e3a8a', padding: '1rem', borderRadius: '8px', border: '1px solid #3b82f6', width: '240px', textAlign: 'center' }}>
+                      {loan.uri && <img src={loan.uri} alt="NFT" style={{ width: '100%', height: '140px', objectFit: 'cover', borderRadius: '6px', marginBottom: '10px' }} />}
+                      <b style={{ color: '#fff', display: 'block' }}>Loan ID: {loan.id.toString()}</b>
+                      <p style={{ color: '#bfdbfe', fontSize: '0.85rem' }}>Dívida: {ethers.utils.formatEther(loan.ethRequested)} ETH</p>
+                      <p style={{ margin: '10px 0', fontSize: '0.8rem', color: loan.funded ? '#34d399' : '#fcd34d', fontWeight: 'bold' }}>
+                        Estado: {loan.active ? (loan.funded ? "🟢 Financiado" : "🟠 A aguardar") : "🔴 Encerrado"}
+                      </p>
+                      
+                      {loan.active && loan.funded && (
+                        <button style={{ ...btnStyle, background: '#2563eb', width: '100%' }} onClick={async () => {
+                           try {
+                             // Substitui o '0.55' pelo cálculo real ou input se necessário
+                             const val = prompt("Introduz o total a pagar (ETH + Juros):");
+                             if(!val) return;
+                             const c = new ethers.Contract(NFT_MARKET_ADDRESS, NFT_MARKET_ABI, signer);
+                             await (await c.repayNftLoan(loan.id, { value: ethers.utils.parseEther(val) })).wait();
+                             alert('Dívida saldada e NFT recuperado!');
+                             fetchMarketData(signer);
+                           } catch(e) { alert(e.message); }
+                        }}>Pagar Dívida</button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+                
+                {/* CAIXA PARA CRIAR NOVO PEDIDO */}
+                <div style={cardStyle}>
+                  <h4>Criar Novo Pedido</h4>
+                  <input id="newLoanId" style={inputStyle} placeholder="Token ID do NFT" />
+                  <input id="newLoanEth" style={inputStyle} placeholder="ETH Requisitado" />
+                  <input id="newLoanTime" style={inputStyle} placeholder="Prazo (Segundos)" />
+                  <button style={{ ...btnStyle, background: '#8b5cf6', width: '100%' }} onClick={async () => {
+                    try {
+                      const tId = document.getElementById('newLoanId').value;
+                      const eth = document.getElementById('newLoanEth').value;
+                      const time = document.getElementById('newLoanTime').value;
+                      const c = new ethers.Contract(NFT_MARKET_ADDRESS, NFT_MARKET_ABI, signer);
+                      await (await c.approve(NFT_MARKET_ADDRESS, tId)).wait();
+                      await (await c.requestNftLoan(tId, ethers.utils.parseEther(eth), time)).wait();
+                      alert('Pedido lançado no mercado!');
+                      fetchMarketData(signer);
+                    } catch(e) { alert(e.message); }
+                  }}>Solicitar Financiamento</button>
+                </div>
+              </div>
+            )}
+
+            {/* ABA 3: OS MEUS INVESTIMENTOS (Onde tu és o Banco) */}
+            {p2pTab === 'lender' && (
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1.5rem' }}>
+                {allP2pLoans.filter(l => l.lender.toLowerCase() === account.toLowerCase()).map(loan => (
+                  <div key={loan.id} style={{ background: '#4c1d95', padding: '1rem', borderRadius: '8px', border: '1px solid #7c3aed', width: '240px', textAlign: 'center' }}>
+                    {loan.uri && <img src={loan.uri} alt="NFT Retido" style={{ width: '100%', height: '140px', objectFit: 'cover', borderRadius: '6px', marginBottom: '10px', filter: 'grayscale(50%)' }} />}
+                    <b style={{ color: '#fff', display: 'block' }}>Loan ID: {loan.id.toString()}</b>
+                    <p style={{ color: '#ddd', fontSize: '0.85rem' }}>Investimento: {ethers.utils.formatEther(loan.ethRequested)} ETH</p>
+                    
+                    {loan.active ? (
+                      <button style={{ ...btnStyle, background: '#ef4444', width: '100%', marginTop: '10px' }} onClick={async () => {
+                        try {
+                          const c = new ethers.Contract(NFT_MARKET_ADDRESS, NFT_MARKET_ABI, signer);
+                          await (await c.liquidateNftLoan(loan.id)).wait();
+                          alert('Liquidação executada! O NFT agora é teu.');
+                          fetchMarketData(signer);
+                        } catch(e) { alert(e.message); }
+                      }}>Forçar Liquidação (Se Expirado)</button>
+                    ) : (
+                      <span style={{ display: 'block', marginTop: '10px', color: '#a78bfa', fontWeight: 'bold' }}>Operação Encerrada</span>
+                    )}
                   </div>
-                )) : <p style={{ color: '#a7f3d0', fontSize: '0.9rem', margin: 0 }}>Não tens pedidos P2P ativos neste momento.</p>}
+                ))}
+                {allP2pLoans.filter(l => l.lender.toLowerCase() === account.toLowerCase()).length === 0 && <p style={{ color: '#aaa' }}>Ainda não financiaste nenhum projeto.</p>}
               </div>
-            </div>
-
-            <h3 style={{ color: '#10b981' }}>5) NFT Liquidity Matching Engine</h3>
-            <div style={{ display: 'flex', gap: '1.5rem', marginBottom: '2rem' }}>
-              <div style={cardStyle}>
-                <h4>1. Solicitar Financiamento (Mutuário)</h4>
-                <input style={inputStyle} placeholder="Token ID (Lock in Escrow)" onChange={e => setListTokenId(e.target.value)} />
-                <input style={inputStyle} placeholder="ETH Capital Requisitado" onChange={e => setP2pEthRequest(e.target.value)} />
-                <input style={inputStyle} placeholder="Prazo Limite (Segundos)" onChange={e => setLoanDeadline(e.target.value)} />
-                <button style={{ ...btnStyle, background: '#8b5cf6' }} onClick={async () => {
-                  const contract = new ethers.Contract(NFT_MARKET_ADDRESS, NFT_MARKET_ABI, signer);
-                  await (await contract.approve(NFT_MARKET_ADDRESS, listTokenId)).wait();
-                  await (await contract.requestNftLoan(listTokenId, ethers.utils.parseEther(p2pEthRequest), loanDeadline)).wait();
-                  alert('Pedido de empréstimo registado na Blockchain!');
-                  fetchMyLoans(account, signer);
-                }}>Registrar Pedido</button>
-              </div>
-              
-              <div style={cardStyle}>
-                <h4>2. Conceder Financiamento (Provedor)</h4>
-                <p style={{ fontSize: '0.85rem', color: '#aaa', marginBottom: '1rem' }}>Requer caução em tokens DEX proporcional ao valor do Ether cedido.</p>
-                <input style={inputStyle} placeholder="Active Loan ID" onChange={e => setP2pLoanId(e.target.value)} />
-                <button style={{ ...btnStyle, background: '#10b981' }} onClick={async () => {
-                  const contract = new ethers.Contract(NFT_MARKET_ADDRESS, NFT_MARKET_ABI, signer);
-                  const dexContract = new ethers.Contract(DEX_ADDRESS, DEX_ABI, signer);
-                  const loanData = await contract.nftLoans(p2pLoanId);
-                  await (await dexContract.approve(NFT_MARKET_ADDRESS, loanData.dexRequired)).wait();
-                  await (await contract.fundNftLoan(p2pLoanId)).wait();
-                  alert('Crédito concedido e liquidez enviada!');
-                  updateDexBalance();
-                }}>Apoiar com DEX</button>
-              </div>
-            </div>
-
-            <h3 style={{ color: '#10b981' }}>5) Clientes & Fechos de Operações P2P</h3>
-            <div style={{ display: 'flex', gap: '1.5rem' }}>
-              <div style={cardStyle}>
-                <h4>Liquidar e Resgatar NFT (Mutuário)</h4>
-                <input style={inputStyle} placeholder="Loan ID" onChange={e => setRepayLoanId(e.target.value)} />
-                <input style={inputStyle} placeholder="ETH Total Due (Capital + 10% Juros)" onChange={e => setRepayAmount(e.target.value)} />
-                <button style={{ ...btnStyle, background: '#2563eb' }} onClick={async () => {
-                  const contract = new ethers.Contract(NFT_MARKET_ADDRESS, NFT_MARKET_ABI, signer);
-                  await (await contract.repayNftLoan(repayLoanId, { value: ethers.utils.parseEther(repayAmount) })).wait();
-                  alert('Empréstimo saldado e NFT recuperado com sucesso!');
-                  updateDexBalance();
-                  fetchMyLoans(account, signer);
-                }}>Pagar e Recuperar</button>
-              </div>
-              
-              <div style={cardStyle}>
-                <h4>Executar Colateral Expirado (Provedor)</h4>
-                <p style={{ fontSize: '0.85rem', color: '#aaa', marginBottom: '1rem' }}>Confisca o NFT do devedor se o prazo final de maturação falhar.</p>
-                <input style={inputStyle} placeholder="Loan ID em Falha" onChange={e => setLiquidateLoanId(e.target.value)} />
-                <button style={{ ...btnStyle, background: '#ef4444' }} onClick={async () => {
-                  const contract = new ethers.Contract(NFT_MARKET_ADDRESS, NFT_MARKET_ABI, signer);
-                  await (await contract.liquidateNftLoan(liquidateLoanId)).wait();
-                  alert('Liquidação executada! NFT transferido para a sua carteira.');
-                }}>Forçar Execução</button>
-              </div>
-            </div>
+            )}
           </section>
         )}
       </div>
