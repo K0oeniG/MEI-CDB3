@@ -124,7 +124,8 @@ app.get('/api/nfts', (req, res) => {
 
 // Cache a newly minted NFT from the client
 app.post('/api/nfts', (req, res) => {
-    const { creator, tokenUri } = req.body;
+    // 1. Adicionamos 'name' e 'description' à receção dos dados
+    const { creator, tokenUri, name, description } = req.body; 
     const db = readDB();
     
     if (!db.nfts) db.nfts = [];
@@ -133,6 +134,8 @@ app.post('/api/nfts', (req, res) => {
         id: db.nfts.length + 1,
         creator,
         tokenUri,
+        name: name || "Projeto Sem Nome",                 // NOVO
+        description: description || "Sem descrição.",     // NOVO
         timestamp: new Date().toISOString()
     };
     
@@ -140,7 +143,6 @@ app.post('/api/nfts', (req, res) => {
     writeDB(db);
     res.status(201).json(newNft);
 });
-
 
 // ==========================================
 // INICIAR SERVIDOR

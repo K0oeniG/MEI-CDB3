@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { ethers } from 'ethers';
+import axios from 'axios';
 
 // Paste your compiled contract ABIs here after compiling in Remix/Hardhat
 const DEX_ABI =  [
@@ -1709,6 +1710,13 @@ const NFT_MARKET_ADDRESS = "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512";
 
 
 export default function Dashboard() {
+    const [selectedMyNft, setSelectedMyNft] = useState(null);
+const [selectedSale, setSelectedSale] = useState(null);
+
+    const [nftName, setNftName] = useState('');
+const [nftDescription, setNftDescription] = useState('');
+const [backendNfts, setBackendNfts] = useState([]); // Para guardar a base de dados
+    const [selectedP2pLoan, setSelectedP2pLoan] = useState(null);
 
     const [isP2pMarketOpen, setIsP2pMarketOpen] = useState(false);
 const [isP2pInvestmentsOpen, setIsP2pInvestmentsOpen] = useState(false);
@@ -1776,8 +1784,19 @@ const [allP2pLoans, setAllP2pLoans] = useState([]);
       const prov = new ethers.providers.Web3Provider(window.ethereum);
       setProvider(prov);
     }
+
+    
     const cachedUser = localStorage.getItem('user');
     if (cachedUser) setSessionUser(JSON.parse(cachedUser));
+
+    // Podes colocar isto onde lês os teus outros dados do utilizador
+const fetchBackendData = async () => {
+  try {
+    const res = await axios.get('http://localhost:3001/api/nfts');
+    setBackendNfts(res.data);
+  } catch(e) { console.error("Erro a ler DB:", e); }
+};
+fetchBackendData();
   }, []);
 
   const connectWallet = async () => {
@@ -2184,7 +2203,7 @@ return (
           </section>
         )}
 
-      {/* ----------------- SECTOR 2: NFT MARKETPLACE & AUCTIONS ----------------- */}
+     {/* ----------------- SECTOR 2: NFT MARKETPLACE & AUCTIONS ----------------- */}
         {activeTab === 'nft-market' && (
           <section>
             
@@ -2212,7 +2231,25 @@ return (
 
                 {/* Lado Direito: Detalhes, Relógio e Licitação */}
                 <div style={{ flex: '1', display: 'flex', flexDirection: 'column', gap: '1rem', marginTop: '3rem' }}>
-                  <h2 style={{ margin: 0, color: '#fff', fontSize: '2rem' }}>Leilão do Token #{selectedAuction.tokenId}</h2>
+                  
+                  {/* NOVO: CARREGAR METADADOS DO LEILÃO (NOME E DESCRIÇÃO DO BACKEND) */}
+                  {(() => {
+                    const meta = backendNfts.find(n => n.tokenUri === selectedAuction.uri) || {};
+                    return (
+                      <>
+                        <h2 style={{ margin: 0, color: '#fff', fontSize: '2rem' }}>
+                          {meta.name || `Leilão do Token #${selectedAuction.tokenId}`}
+                        </h2>
+                        
+                        <div style={{ background: '#121026', padding: '1rem', borderRadius: '8px', borderLeft: '4px solid #d946ef' }}>
+                          <p style={{ margin: '0 0 5px 0', color: '#aaa', fontWeight: 'bold', fontSize: '0.9rem' }}>📝 Descrição do Projeto:</p>
+                          <p style={{ margin: 0, color: '#e2e8f0', lineHeight: '1.5', fontSize: '0.95rem' }}>
+                            {meta.description || "Nenhuma descrição fornecida pelo criador."}
+                          </p>
+                        </div>
+                      </>
+                    );
+                  })()}
                   
                   <div style={{ background: '#000', padding: '1rem', borderRadius: '8px', border: '1px solid #333' }}>
                     <p style={{ color: '#aaa', margin: '0 0 5px 0' }}>Tempo Restante:</p>
@@ -2224,25 +2261,20 @@ return (
                       <p style={{ margin: 0, color: '#fbcfe8' }}>Preço Base</p>
                       <b style={{ color: '#fff' }}>{ethers.utils.formatEther(selectedAuction.minPrice)} ETH</b>
                     </div>
-                    
-                    
                     <div style={{ textAlign: 'right' }}>
                       <p style={{ margin: 0, color: '#10b981' }}>Maior Licitação Atual</p>
                       <b style={{ color: '#fff', fontSize: '1.2rem' }}>
                         {selectedAuction.highestBid.gt(0) ? ethers.utils.formatEther(selectedAuction.highestBid) : "0.0"} ETH
                       </b>
-                      {/* O AVISO DE LIDERANÇA */}
                       {selectedAuction.highestBidder && selectedAuction.highestBidder.toLowerCase() === account.toLowerCase() && (
                         <div style={{ background: '#059669', color: '#fff', padding: '4px 8px', borderRadius: '4px', fontSize: '0.8rem', marginTop: '5px', fontWeight: 'bold' }}>
                           👑 És o líder atual!
                         </div>
                       )}
                     </div>
-
-                    
                   </div>
 
-{/* ====== NOVO: HISTÓRICO DE LICITAÇÕES ====== */}
+                  {/* NOVO: HISTÓRICO DE LICITAÇÕES */}
                   <div style={{ marginTop: '0.5rem', background: '#0a0a14', padding: '1rem', borderRadius: '8px', border: '1px solid #333' }}>
                     <h4 style={{ color: '#a855f7', margin: '0 0 10px 0', fontSize: '1rem' }}>📜 Histórico de Lances</h4>
                     {bidHistory.length > 0 ? (
@@ -2260,31 +2292,25 @@ return (
                       <p style={{ color: '#555', margin: 0, fontSize: '0.9rem' }}>Ainda não há lances. Sê o primeiro!</p>
                     )}
                   </div>
-                 {/* CAIXA DE LICITAÇÃO OU BOTÃO DE FINALIZAR (DINÂMICO) */}
+
+                  {/* CAIXA DE LICITAÇÃO OU BOTÃO DE FINALIZAR */}
                   <div style={{ marginTop: '1rem' }}>
                     {timeLeft.includes('Terminado') ? (
-                      
-                      // SE O LEILÃO JÁ TERMINOU: Mostra o botão de fecho e resgate
                       <button 
                         style={{ ...btnStyle, background: '#eab308', color: '#000', width: '100%', fontSize: '1.2rem', padding: '1rem' }} 
                         onClick={async () => {
                           try {
                             const c = new ethers.Contract(NFT_MARKET_ADDRESS, NFT_MARKET_ABI, signer);
-                            // Chama a função do teu contrato Solidity!
                             await (await c.endAuction(selectedAuction.tokenId)).wait();
-                            
                             alert('🏆 Leilão finalizado com sucesso! O NFT foi enviado para a tua galeria.');
-                            setSelectedAuction(null); // Volta para as galerias
-                            fetchMarketData(account, signer); // Atualiza os teus NFTs e a montra
+                            setSelectedAuction(null);
+                            fetchMarketData(account, signer);
                           } catch(e) { alert(e.message); }
                         }}
                       >
                         🏆 Finalizar Leilão e Reclamar NFT
                       </button>
-
                     ) : (
-
-                      // SE O LEILÃO AINDA DECORRE: Mostra a caixa normal de licitação
                       <>
                         <input id="auction-bid-amount" style={{ ...inputStyle, fontSize: '1.2rem', padding: '1rem' }} placeholder="Valor da tua licitação (ETH)" />
                         <button style={{ ...btnStyle, background: '#d946ef', width: '100%', fontSize: '1.2rem', padding: '1rem', marginTop: '10px' }} onClick={async () => {
@@ -2301,17 +2327,15 @@ return (
                           } catch(e) { alert(e.message); }
                         }}>Fazer Licitação</button>
                       </>
-
                     )}
                   </div>
-
                 </div>
 
               </div>
             ) : (
               /* ====== SE NÃO HOUVER LEILÃO SELECIONADO (MOSTRA AS GALERIAS NORMAIS) ====== */
               <>
-                {/* 1. A MINHA COLEÇÃO PESSOAL (COLAPSÁVEL) */}
+                {/* 1. A MINHA COLEÇÃO PESSOAL (COLAPSÁVEL + CLICÁVEL) */}
                 <div style={{ marginBottom: '2.5rem', width: '100%' }}>
                   <div 
                     onClick={() => setIsGalleryOpen(!isGalleryOpen)} 
@@ -2327,20 +2351,55 @@ return (
                   </p>
                   
                   {isGalleryOpen && (
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem', background: '#131129', padding: '1rem', borderRadius: '10px', border: '1px solid #3b2d6b' }}>
-                      {myNfts.length > 0 ? myNfts.map(nft => (
-                        <div key={nft.tokenId} style={{ background: '#0b0a12', padding: '0.75rem', borderRadius: '8px', border: '1px solid #4c3799', width: '160px', textAlign: 'center' }}>
-                          <img src={nft.uri} alt={`NFT ${nft.tokenId}`} style={{ width: '100%', height: '130px', objectFit: 'cover', borderRadius: '6px', marginBottom: '8px', backgroundColor: '#000' }} />
-                          <span style={{ color: '#fff', fontSize: '0.85rem', fontWeight: 'bold', display: 'block' }}>ID do Token: <span style={{color: '#a855f7'}}>{nft.tokenId}</span></span>
+                    selectedMyNft ? (
+                      /* NOVO: VISTA DETALHADA DO NFT PESSOAL */
+                      <div style={{ background: '#131129', padding: '2rem', borderRadius: '12px', border: '1px solid #3b2d6b', display: 'flex', gap: '2rem', alignItems: 'flex-start' }}>
+                        <div style={{ flex: '1' }}>
+                          <button style={{ ...btnStyle, background: '#3b2d6b', marginBottom: '1rem' }} onClick={() => setSelectedMyNft(null)}>⬅ Voltar à Galeria</button>
+                          <img src={selectedMyNft.uri} alt="NFT" style={{ width: '100%', borderRadius: '10px', border: '2px solid #c084fc' }} />
                         </div>
-                      )) : (
-                        <p style={{ color: '#6b7280', fontSize: '0.9rem', margin: '10px' }}>Ainda não possuis nenhum NFT nesta carteira. Cria um no formulário abaixo!</p>
-                      )}
-                    </div>
+                        <div style={{ flex: '1', display: 'flex', flexDirection: 'column', gap: '1rem', marginTop: '3rem' }}>
+                          {(() => {
+                            const meta = backendNfts.find(n => n.tokenUri === selectedMyNft.uri) || {};
+                            return (
+                              <>
+                                <h2 style={{ margin: 0, color: '#fff', fontSize: '2rem' }}>{meta.name || `Asset #${selectedMyNft.tokenId}`}</h2>
+                                <div style={{ background: '#0b0a12', padding: '1rem', borderRadius: '8px', borderLeft: '4px solid #c084fc' }}>
+                                  <p style={{ margin: '0 0 5px 0', color: '#aaa', fontWeight: 'bold', fontSize: '0.9rem' }}>📝 Descrição do Ativo:</p>
+                                  <p style={{ margin: 0, color: '#e2e8f0', lineHeight: '1.5', fontSize: '0.95rem' }}>{meta.description || "Nenhuma descrição disponível."}</p>
+                                </div>
+                              </>
+                            );
+                          })()}
+                          <div style={{ background: '#0b0a12', padding: '1rem', borderRadius: '8px', color: '#fff' }}>
+                            <p style={{ margin: 0, fontSize: '0.9rem', color: '#aaa' }}>ID do Ativo na Blockchain: <b style={{ color: '#c084fc' }}>{selectedMyNft.tokenId}</b></p>
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      /* GALERIA REGULAR */
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem', background: '#131129', padding: '1rem', borderRadius: '10px', border: '1px solid #3b2d6b' }}>
+                        {myNfts.length > 0 ? myNfts.map(nft => (
+                          <div 
+                            key={nft.tokenId} 
+                            onClick={() => setSelectedMyNft(nft)}
+                            style={{ background: '#0b0a12', padding: '0.75rem', borderRadius: '8px', border: '1px solid #4c3799', width: '160px', textAlign: 'center', cursor: 'pointer', transition: 'transform 0.2s' }}
+                            onMouseOver={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
+                            onMouseOut={(e) => e.currentTarget.style.transform = 'scale(1)'}
+                          >
+                            <img src={nft.uri} alt={`NFT ${nft.tokenId}`} style={{ width: '100%', height: '130px', objectFit: 'cover', borderRadius: '6px', marginBottom: '8px', backgroundColor: '#000' }} />
+                            <span style={{ color: '#fff', fontSize: '0.85rem', fontWeight: 'bold', display: 'block' }}>ID do Token: <span style={{color: '#a855f7'}}>{nft.tokenId}</span></span>
+                            <p style={{ color: '#c084fc', fontSize: '0.75rem', fontWeight: 'bold', marginTop: '5px' }}>👉 Detalhes</p>
+                          </div>
+                        )) : (
+                          <p style={{ color: '#6b7280', fontSize: '0.9rem', margin: '10px' }}>Ainda não possuis nenhum NFT nesta carteira. Cria um no formulário abaixo!</p>
+                        )}
+                      </div>
+                    )
                   )}
                 </div>
 
-                {/* 2. MONTRA DE VENDAS DIRETAS (COLAPSÁVEL) */}
+                {/* 2. MONTRA DE VENDAS DIRETAS (COLAPSÁVEL + CLICÁVEL) */}
                 <div style={{ marginBottom: '2.5rem', width: '100%' }}>
                   <div 
                     onClick={() => setIsSalesOpen(!isSalesOpen)} 
@@ -2352,29 +2411,69 @@ return (
                   </div>
 
                   {isSalesOpen && (
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem' }}>
-                      {marketListings.length > 0 ? marketListings.map(item => (
-                        <div key={item.tokenId} style={{ background: '#1e1b4b', padding: '1rem', borderRadius: '8px', border: '1px solid #4338ca', width: '220px', textAlign: 'center' }}>
-                          <img src={item.uri} alt={`NFT ${item.tokenId}`} style={{ width: '100%', height: '180px', objectFit: 'cover', borderRadius: '6px', marginBottom: '10px', backgroundColor: '#000' }} />
-                          <b style={{ color: '#fff', display: 'block' }}>Token ID: {item.tokenId}</b>
-                          <p style={{ color: '#10b981', fontWeight: 'bold', margin: '10px 0' }}>
-                            {ethers.utils.formatEther(item.price)} {item.isDexPayment ? 'DEX' : 'ETH'}
-                          </p>
-                          <button style={{ ...btnStyle, background: '#2563eb', width: '100%' }} onClick={async () => {
+                    selectedSale ? (
+                      /* NOVO: VISTA DETALHADA DA VENDA DIRETA */
+                      <div style={{ background: '#1e1b4b', padding: '2rem', borderRadius: '12px', border: '1px solid #4338ca', display: 'flex', gap: '2rem', alignItems: 'flex-start' }}>
+                        <div style={{ flex: '1' }}>
+                          <button style={{ ...btnStyle, background: '#312e81', marginBottom: '1rem' }} onClick={() => setSelectedSale(null)}>⬅ Voltar à Montra</button>
+                          <img src={selectedSale.uri} alt="NFT Venda" style={{ width: '100%', borderRadius: '10px', border: '2px solid #4338ca' }} />
+                        </div>
+                        <div style={{ flex: '1', display: 'flex', flexDirection: 'column', gap: '1rem', marginTop: '3rem' }}>
+                          {(() => {
+                            const meta = backendNfts.find(n => n.tokenUri === selectedSale.uri) || {};
+                            return (
+                              <>
+                                <h2 style={{ margin: 0, color: '#fff', fontSize: '2rem' }}>{meta.name || `Item #${selectedSale.tokenId}`}</h2>
+                                <div style={{ background: '#0f172a', padding: '1rem', borderRadius: '8px', borderLeft: '4px solid #a855f7' }}>
+                                  <p style={{ margin: '0 0 5px 0', color: '#94a3b8', fontWeight: 'bold', fontSize: '0.9rem' }}>📝 Descrição do Item:</p>
+                                  <p style={{ margin: 0, color: '#e2e8f0', lineHeight: '1.5', fontSize: '0.95rem' }}>{meta.description || "Nenhuma descrição fornecida para esta listagem."}</p>
+                                </div>
+                              </>
+                            );
+                          })()}
+                          <div style={{ background: '#0f172a', padding: '1rem', borderRadius: '8px', color: '#fff' }}>
+                            <p style={{ margin: '0 0 5px 0', color: '#94a3b8', fontSize: '0.85rem' }}>Vendedor:</p>
+                            <p style={{ margin: 0, color: '#fff', fontFamily: 'monospace', fontSize: '0.95rem', overflowWrap: 'anywhere' }}>{selectedSale.seller}</p>
+                            <p style={{ color: '#10b981', fontWeight: 'bold', fontSize: '1.5rem', margin: '15px 0 0 0' }}>
+                              Preço: {ethers.utils.formatEther(selectedSale.price)} {selectedSale.isDexPayment ? 'DEX' : 'ETH'}
+                            </p>
+                          </div>
+                          <button style={{ ...btnStyle, background: '#2563eb', width: '100%', fontSize: '1.2rem', padding: '1rem' }} onClick={async () => {
                             try {
                               const c = new ethers.Contract(NFT_MARKET_ADDRESS, NFT_MARKET_ABI, signer);
-                              if(item.isDexPayment){
+                              if(selectedSale.isDexPayment){
                                  const dex = new ethers.Contract(DEX_ADDRESS, DEX_ABI, signer);
-                                 await (await dex.approve(NFT_MARKET_ADDRESS, item.price)).wait();
+                                 await (await dex.approve(NFT_MARKET_ADDRESS, selectedSale.price)).wait();
                               }
-                              await (await c.buyNFT(item.tokenId, { value: item.isDexPayment ? 0 : item.price })).wait();
+                              await (await c.buyNFT(selectedSale.tokenId, { value: selectedSale.isDexPayment ? 0 : selectedSale.price })).wait();
                               alert('Comprado com sucesso!');
+                              setSelectedSale(null);
                               fetchMarketData(account, signer);
                             } catch(e) { alert(e.message); }
                           }}>Adquirir Asset</button>
                         </div>
-                      )) : <p style={{ color: '#6b7280', fontSize: '0.9rem' }}>Não há NFTs listados para venda direta.</p>}
-                    </div>
+                      </div>
+                    ) : (
+                      /* LISTAGEM REGULAR DE VENDAS */
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem' }}>
+                        {marketListings.length > 0 ? marketListings.map(item => (
+                          <div 
+                            key={item.tokenId} 
+                            onClick={() => setSelectedSale(item)}
+                            style={{ background: '#1e1b4b', padding: '1rem', borderRadius: '8px', border: '1px solid #4338ca', width: '220px', textAlign: 'center', cursor: 'pointer', transition: 'transform 0.2s' }}
+                            onMouseOver={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
+                            onMouseOut={(e) => e.currentTarget.style.transform = 'scale(1)'}
+                          >
+                            <img src={item.uri} alt={`NFT ${item.tokenId}`} style={{ width: '100%', height: '180px', objectFit: 'cover', borderRadius: '6px', marginBottom: '10px', backgroundColor: '#000' }} />
+                            <b style={{ color: '#fff', display: 'block' }}>Token ID: {item.tokenId}</b>
+                            <p style={{ color: '#10b981', fontWeight: 'bold', margin: '10px 0' }}>
+                              {ethers.utils.formatEther(item.price)} {item.isDexPayment ? 'DEX' : 'ETH'}
+                            </p>
+                            <p style={{ color: '#a855f7', fontSize: '0.8rem', fontWeight: 'bold', marginTop: '5px' }}>👉 Detalhes</p>
+                          </div>
+                        )) : <p style={{ color: '#6b7280', fontSize: '0.9rem' }}>Não há NFTs listados para venda direta.</p>}
+                      </div>
+                    )
                   )}
                 </div>
 
@@ -2406,14 +2505,40 @@ return (
               </>
             )}
 
-            {/* MANTER AS CAIXAS DE ADMINISTRAÇÃO (Mint, List, Open Auction) */}
+            {/* FERRAMENTAS DE CRIADOR & VENDEDOR */}
             <h3 style={{ color: '#a855f7', borderTop: '1px solid #333', paddingTop: '2rem' }}>⚙️ Ferramentas de Criador & Vendedor</h3>
             
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1.5rem', marginBottom: '2rem', width: '100%' }}>
               <div style={cardStyle}>
                 <h4>Forge Digital Collectible (Mint)</h4>
+                <input style={inputStyle} placeholder="Nome do Projeto / NFT" onChange={e => setNftName(e.target.value)} />
+                <textarea 
+                  style={{ ...inputStyle, minHeight: '60px', resize: 'vertical' }} 
+                  placeholder="Descrição ou objetivo do financiamento..." 
+                  onChange={e => setNftDescription(e.target.value)} 
+                />
                 <input type="file" accept="image/*" style={{ ...inputStyle, background: '#1e1e2d', cursor: 'pointer' }} onChange={e => setNftFile(e.target.files[0])} />
-                <button style={{ ...btnStyle, background: '#8b5cf6', width: '100%' }} onClick={handleMintNft}>Forge Asset</button>
+                <button style={{ ...btnStyle, background: '#8b5cf6', width: '100%' }} onClick={async () => {
+                  try {
+                    const formData = new FormData();
+                    formData.append('nftImage', nftFile);
+                    const resImg = await axios.post('http://localhost:3001/api/upload', formData);
+                    const uri = resImg.data.imageUrl;
+
+                    const contract = new ethers.Contract(NFT_MARKET_ADDRESS, NFT_MARKET_ABI, signer);
+                    await (await contract.mintNFT(uri)).wait();
+
+                    await axios.post('http://localhost:3001/api/nfts', {
+                      creator: account,
+                      tokenUri: uri,
+                      name: nftName,
+                      description: nftDescription
+                    });
+
+                    alert('Ativo forjado com sucesso!');
+                    fetchMarketData(account, signer);
+                  } catch (e) { alert(e.message); }
+                }}>Forge Asset</button>
               </div>
               
               <div style={cardStyle}>
@@ -2449,8 +2574,6 @@ return (
           </section>
         )}
 
-
-
        {/* ----------------- SECTOR 3: PEER-TO-PEER PAWNING ----------------- */}
         {activeTab === 'p2p-pawn' && (
           <section>
@@ -2463,6 +2586,7 @@ return (
             </div>
 
             {/* 1. MERCADO P2P (COLAPSÁVEL) */}
+            {/* 1. MERCADO P2P (COLAPSÁVEL) */}
             <div style={{ marginBottom: '2.5rem', width: '100%' }}>
               <div onClick={() => setIsP2pMarketOpen(!isP2pMarketOpen)} style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '8px', marginBottom: '1rem' }}>
                 <h3 style={{ color: '#34d399', margin: 0, userSelect: 'none' }}>{isP2pMarketOpen ? '▼' : '▶'} 🏦 Mercado P2P (Apoiar Projetos)</h3>
@@ -2470,27 +2594,129 @@ return (
               <p style={{ color: '#a7f3d0', marginTop: 0, marginBottom: '1rem', fontSize: '0.9rem' }}>Projetos da comunidade a aguardar liquidez. Fornece ETH e retém DEX como garantia.</p>
               
               {isP2pMarketOpen && (
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1.5rem' }}>
-                  {allP2pLoans.filter(l => l.active && !l.funded && l.borrower.toLowerCase() !== account.toLowerCase()).map(loan => (
-                    <div key={loan.id} style={{ background: '#022c22', padding: '1rem', borderRadius: '8px', border: '1px solid #059669', width: '240px', textAlign: 'center' }}>
-                      {loan.uri && <img src={loan.uri} alt="NFT Colateral" style={{ width: '100%', height: '140px', objectFit: 'cover', borderRadius: '6px', marginBottom: '10px' }} />}
-                      <b style={{ color: '#fff', display: 'block' }}>Loan ID: {loan.id.toString()}</b>
-                      <p style={{ color: '#d1fae5', margin: '10px 0' }}>Requisitado: <b style={{color: '#fbbf24'}}>{ethers.utils.formatEther(loan.ethRequested)} ETH</b></p>
-                      
-                      <button style={{ ...btnStyle, background: '#10b981', width: '100%' }} onClick={async () => {
-                        try {
-                          const contract = new ethers.Contract(NFT_MARKET_ADDRESS, NFT_MARKET_ABI, signer);
-                          const dexContract = new ethers.Contract(DEX_ADDRESS, DEX_ABI, signer);
-                          await (await dexContract.approve(NFT_MARKET_ADDRESS, loan.dexRequired)).wait();
-                          await (await contract.fundNftLoan(loan.id, { value: loan.ethRequested })).wait();
-                          alert('Crédito concedido!');
-                          fetchMarketData(account, signer);
-                        } catch(e) { alert(e.message); }
-                      }}>Apoiar com Liquidez</button>
+                selectedP2pLoan ? (
+                  
+                  /* ================= SALA DE FINANCIAMENTO (VISTA DETALHADA) ================= */
+                  <div style={{ background: '#022c22', padding: '2rem', borderRadius: '12px', border: '1px solid #059669', display: 'flex', gap: '2rem', alignItems: 'flex-start' }}>
+                    
+                    {/* Lado Esquerdo: Imagem do Colateral */}
+                    <div style={{ flex: '1' }}>
+                      <button style={{ ...btnStyle, background: '#064e3b', marginBottom: '1rem' }} onClick={() => setSelectedP2pLoan(null)}>
+                        ⬅ Voltar ao Mercado
+                      </button>
+                      <img src={selectedP2pLoan.uri} alt="NFT Colateral" style={{ width: '100%', borderRadius: '10px', border: '2px solid #10b981' }} />
                     </div>
-                  ))}
-                  {allP2pLoans.filter(l => l.active && !l.funded && l.borrower.toLowerCase() !== account.toLowerCase()).length === 0 && <p style={{ color: '#aaa' }}>Não há pedidos ativos no mercado.</p>}
-                </div>
+
+                   {/* Lado Direito: Informações do Projeto e Investimento */}
+                    <div style={{ flex: '1', display: 'flex', flexDirection: 'column', gap: '1rem', marginTop: '3rem' }}>
+                      
+                      {/* PROCURA OS DADOS NO BACKEND USANDO O URI DA IMAGEM DO COLATERAL */}
+                      {(() => {
+                        const meta = backendNfts.find(n => n.tokenUri === selectedP2pLoan.uri) || {};
+                        return (
+                          <>
+                            {/* NOME DO PROJETO */}
+                            <h2 style={{ margin: 0, color: '#fff', fontSize: '2rem' }}>
+                              {meta.name || `Projeto #${selectedP2pLoan.id.toString()}`}
+                            </h2>
+                            
+                            {/* CAIXA DE DESCRIÇÃO DO PROJETO */}
+                            <div style={{ background: '#1e293b', padding: '1rem', borderRadius: '8px', borderLeft: '4px solid #3b82f6' }}>
+                              <p style={{ margin: '0 0 5px 0', color: '#94a3b8', fontWeight: 'bold', fontSize: '0.9rem' }}>
+                                📝 Descrição do Projeto:
+                              </p>
+                              <p style={{ margin: 0, color: '#e2e8f0', lineHeight: '1.5', fontSize: '0.95rem' }}>
+                                {meta.description || "Nenhuma descrição fornecida pelo criador para este pedido."}
+                              </p>
+                            </div>
+                          </>
+                        );
+                      })()}
+
+                      {/* CARTEIRA DO MUTUÁRIO */}
+                      <div style={{ background: '#064e3b', padding: '1rem', borderRadius: '8px' }}>
+                        <p style={{ margin: '0 0 5px 0', color: '#a7f3d0', fontSize: '0.85rem' }}>👤 Mutuário (Criador):</p>
+                        <p style={{ margin: 0, color: '#fff', fontFamily: 'monospace', fontSize: '1.05rem', overflowWrap: 'anywhere' }}>
+                          {selectedP2pLoan.borrower}
+                        </p>
+                      </div>
+
+                      {/* CONTEXTO FINANCEIRO DO EMPRÉSTIMO */}
+                      <div style={{ background: '#0f172a', padding: '1rem', borderRadius: '8px', border: '1px solid #1e293b' }}>
+                        <p style={{ margin: '0 0 10px 0', color: '#94a3b8', fontSize: '0.85rem' }}>Detalhes do Pedido:</p>
+                        
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px' }}>
+                          <span style={{ color: '#cbd5e1' }}>Capital Requisitado:</span>
+                          <b style={{ color: '#fbbf24', fontSize: '1.2rem' }}>
+                            {ethers.utils.formatEther(selectedP2pLoan.ethRequested)} ETH
+                          </b>
+                        </div>
+                        
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px' }}>
+                          <span style={{ color: '#cbd5e1' }}>A Tua Caução Requisitada:</span>
+                          <b style={{ color: '#38bdf8' }}>
+                            {ethers.utils.formatEther(selectedP2pLoan.dexRequired)} DEX
+                          </b>
+                        </div>
+                        
+                        {/* CÁLCULO DE RECOMPENSA FINANCEIRA (+5% PARA O INVESTIDOR) */}
+                        <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid #334155', paddingTop: '10px', marginTop: '10px' }}>
+                          <span style={{ color: '#cbd5e1', fontWeight: 'bold' }}>Teu Lucro Estimado (+5%):</span>
+                          <b style={{ color: '#10b981', fontSize: '1.2rem' }}>
+                            +{ethers.utils.formatEther(selectedP2pLoan.ethRequested.mul(5).div(100))} ETH
+                          </b>
+                        </div>
+                      </div>
+
+                      {/* BOTÃO PARA PROCESSAR O FINANCIAMENTO NA BLOCKCHAIN */}
+                      <div style={{ marginTop: '1rem' }}>
+                        <button 
+                          style={{ ...btnStyle, background: '#10b981', width: '100%', fontSize: '1.2rem', padding: '1rem' }} 
+                          onClick={async () => {
+                            try {
+                              const contract = new ethers.Contract(NFT_MARKET_ADDRESS, NFT_MARKET_ABI, signer);
+                              const dexContract = new ethers.Contract(DEX_ADDRESS, DEX_ABI, signer);
+                              
+                              // 1. Aprovação do colateral DEX (Garantia do Provedor de Liquidez)
+                              await (await dexContract.approve(NFT_MARKET_ADDRESS, selectedP2pLoan.dexRequired)).wait();
+                              
+                              // 2. Transferência dos Fundos ETH para o contrato transferir ao Mutuário
+                              await (await contract.fundNftLoan(selectedP2pLoan.id, { value: selectedP2pLoan.ethRequested })).wait();
+                              
+                              alert('🎉 Crédito concedido com sucesso! O projeto foi financiado.');
+                              setSelectedP2pLoan(null); // Fecha a sala e retorna à listagem principal
+                              fetchMarketData(account, signer); // Atualiza os estados no ecrã
+                            } catch(e) { alert(e.message); }
+                          }}
+                        >
+                          Apoiar com Liquidez
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                ) : (
+
+                  /* ================= GALERIA NORMAL DE CARTÕES ================= */
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1.5rem' }}>
+                    {allP2pLoans.filter(l => l.active && !l.funded && l.borrower.toLowerCase() !== account.toLowerCase()).map(loan => (
+                      <div 
+                        key={loan.id} 
+                        onClick={() => setSelectedP2pLoan(loan)}
+                        style={{ background: '#022c22', padding: '1rem', borderRadius: '8px', border: '1px solid #059669', width: '240px', textAlign: 'center', cursor: 'pointer', transition: 'transform 0.2s' }}
+                        onMouseOver={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
+                        onMouseOut={(e) => e.currentTarget.style.transform = 'scale(1)'}
+                      >
+                        {loan.uri && <img src={loan.uri} alt="NFT Colateral" style={{ width: '100%', height: '140px', objectFit: 'cover', borderRadius: '6px', marginBottom: '10px' }} />}
+                        <b style={{ color: '#fff', display: 'block' }}>Projeto ID: {loan.id.toString()}</b>
+                        <p style={{ color: '#d1fae5', margin: '10px 0' }}>Requisitado: <b style={{color: '#fbbf24'}}>{ethers.utils.formatEther(loan.ethRequested)} ETH</b></p>
+                        <p style={{ color: '#34d399', fontWeight: 'bold', marginTop: '10px' }}>👉 Clica para ver detalhes</p>
+                      </div>
+                    ))}
+                    {allP2pLoans.filter(l => l.active && !l.funded && l.borrower.toLowerCase() !== account.toLowerCase()).length === 0 && <p style={{ color: '#aaa' }}>Não há pedidos ativos no mercado.</p>}
+                  </div>
+
+                )
               )}
             </div>
 
