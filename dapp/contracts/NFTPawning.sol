@@ -186,9 +186,13 @@ contract NFTPawningMarketplace is ERC721URIStorage {
         emit NftLoanRequested(_loanIds, msg.sender, tokenId, ethRequested);
     }
 
-    function fundNftLoan(uint256 loanId) external {
+    function fundNftLoan(uint256 loanId) external payable{
         NftLoan storage loan = nftLoans[loanId];
+
         require(loan.active && !loan.funded, "Pedido de emprestimo indisponivel.");
+
+        require(msg.value == loan.ethRequested, "Tens de enviar o valor exato de ETH pedido.");
+        
         require(dexContract.balanceOf(msg.sender) >= loan.dexRequired, "DEX insuficiente para colateral.");
 
         // Pull DEX security from Provider into this contract
