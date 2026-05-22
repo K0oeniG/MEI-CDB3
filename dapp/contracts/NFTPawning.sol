@@ -115,10 +115,16 @@ contract NFTPawningMarketplace is ERC721URIStorage {
 
     function placeBid(uint256 tokenId) external payable {
         Auction storage auction = auctions[tokenId];
+        require(msg.sender != auction.seller, "O dono nao pode licitar.");
         require(auction.active, "Leilao inativo.");
         require(block.timestamp < auction.endTime, "Leilao terminado.");
         require(msg.value > auction.minPrice, "Abaixo do preco minimo.");
         require(msg.value > auction.highestBid, "Ja existe uma licitacao maior.");
+
+        // Se faltarem 5 segundos ou menos para o fim, estende por mais 10 segundos
+        if (auction.endTime - block.timestamp <= 5) {
+            auction.endTime += 10;
+        }
 
         // Refund previous bidder
         if (auction.highestBidder != address(0)) {
