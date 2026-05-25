@@ -854,7 +854,12 @@ export default function Dashboard() {
                     });
 
                     alert('Ativo forjado com sucesso!');
+
                     fetchMarketData(account, signer);
+
+const resDb = await axios.get('http://localhost:3001/api/nfts');
+    setBackendNfts(resDb.data);
+
                   } catch (e) { alert(e.message); }
                 }}>Forge Asset</button>
               </div>
