@@ -237,77 +237,124 @@ export default function Dashboard() {
   };
 
   const handleBuyDex = async () => {
+    
+    if (!ethAmount || isNaN(ethAmount) || Number(ethAmount) <= 0) {
+      return alert('⚠️ Por favor, insira uma quantidade válida de ETH para enviar.');
+    }
+
     try {
       const contract = new ethers.Contract(DEX_ADDRESS, DEX_ABI, signer);
       const tx = await contract.buyDex({ value: ethers.utils.parseEther(ethAmount) });
       await tx.wait();
-      alert('Tokens DEX adquiridos!');
+      alert(' Tokens DEX adquiridos com sucesso!');
       updateDexBalance(account, signer);
-    } catch (err) { alert(err.message); }
+      setEthAmount(''); 
+    } catch (err) { 
+    
+      if (err.message.includes("user rejected")) return alert(" Transação cancelada pelo utilizador.");
+      alert("Erro ao comprar DEX: Verifique se tem saldo ETH suficiente."); 
+    }
   };
 
+
   const handleSellDex = async () => {
+    if (!dexAmount || isNaN(dexAmount) || Number(dexAmount) <= 0) {
+      return alert(' Por favor, insira a quantidade de DEX que deseja vender.');
+    }
+
     try {
       const contract = new ethers.Contract(DEX_ADDRESS, DEX_ABI, signer);
       const tx = await contract.sellDex(ethers.utils.parseEther(dexAmount));
       await tx.wait();
-      alert('Tokens DEX vendidos!');
+      alert(' Tokens DEX vendidos com sucesso!');
       updateDexBalance(account, signer);
-    } catch (err) { alert(err.message); }
+      setDexAmount('');
+    } catch (err) { 
+      if (err.message.includes("user rejected")) return alert("Transação cancelada pelo utilizador.");
+      if (err.message.includes("Tokens insuficientes")) return alert(" Não tem tokens DEX suficientes para esta venda.");
+      alert(" Erro ao vender DEX."); 
+    }
   };
 
   const handleTakeLoan = async () => {
+    if (!loanCollateral || isNaN(loanCollateral) || Number(loanCollateral) <= 0) {
+      return alert('Por favor, defina a quantidade de DEX para usar como garantia (Colateral).');
+    }
+    if (!loanDeadline || isNaN(loanDeadline) || Number(loanDeadline) <= 0) {
+      return alert(' Por favor, defina a duração do empréstimo (em ciclos).');
+    }
+
     try {
       const contract = new ethers.Contract(DEX_ADDRESS, DEX_ABI, signer);
       const tx = await contract.loan(ethers.utils.parseEther(loanCollateral), loanDeadline);
       await tx.wait();
-      alert('Contrato de Empréstimo Iniciado com sucesso!');
+      alert(' Contrato de Empréstimo Iniciado com sucesso!');
       updateDexBalance(account, signer);
       fetchMyLoans(account, signer); 
-    } catch (err) { alert(err.message); }
+    } catch (err) { 
+      if (err.message.includes("user rejected")) return alert(" Transação cancelada.");
+      if (err.message.includes("DEX insuficiente")) return alert(" Não tem saldo DEX suficiente para dar como garantia.");
+      if (err.message.includes("Prazo invalido")) return alert(" O prazo inserido ultrapassa o limite máximo permitido.");
+      alert(" Erro ao pedir o empréstimo."); 
+    }
   };
 
-  const handleMakePayment = async () => {
+const handleMakePayment = async () => {
+    if (!paymentLoanId || isNaN(paymentLoanId)) {
+      return alert(' Por favor, insira o ID do empréstimo que deseja pagar.');
+    }
+    if (!paymentValue || isNaN(paymentValue) || Number(paymentValue) <= 0) {
+      return alert(' Por favor, insira o valor em ETH que vai pagar nesta prestação.');
+    }
+
     try {
       const contract = new ethers.Contract(DEX_ADDRESS, DEX_ABI, signer);
+      
+      // Validação Extra: O empréstimo existe?
+      const loan = await contract.loans(paymentLoanId);
+      if (loan.amount.eq(0)) return alert(" Este ID de empréstimo não existe ou já foi pago.");
+      if (loan.borrower.toLowerCase() !== account.toLowerCase()) return alert(" Não é o dono deste empréstimo.");
+
       const tx = await contract.makePayment(paymentLoanId, { value: ethers.utils.parseEther(paymentValue) });
       await tx.wait();
-      alert('Pagamento da prestação processado!');
+      alert('Pagamento da prestação processado com sucesso!');
       fetchMyLoans(account, signer); 
-    } catch (err) { alert(err.message); }
+    } catch (err) { 
+      if (err.message.includes("Valor insuficiente")) return alert("O valor enviado não cobre a prestação atual.");
+      if (err.message.includes("Prazo ultrapassado")) return alert("O prazo de pagamento já foi ultrapassado.");
+      alert("Falha ao processar o pagamento."); 
+    }
   };
 
   const handleMintNft = async () => {
-    if (!nftFile) return alert('Por favor, seleciona uma imagem primeiro!');
+    if (!nftFile) return alert(' Por favor, selecione uma imagem para o seu ativo digital.');
+    if (!nftName || nftName.trim() === "") return alert(' O nome do Projeto/NFT é obrigatório.');
+    if (!nftDescription || nftDescription.trim() === "") return alert(' A descrição do ativo é obrigatória.');
   
     try {
       const formData = new FormData();
       formData.append('nftImage', nftFile); 
-
-      const uploadRes = await fetch('http://localhost:3001/api/upload', {
-        method: 'POST',
-        body: formData
-      });
-    
-      const uploadData = await uploadRes.json();
-      if (!uploadData.imageUrl) throw new Error("Falha no upload da imagem");
-    
-      const finalUri = uploadData.imageUrl; 
-
+      const uploadRes = await axios.post('http://localhost:3001/api/upload', formData);
+      const finalUri = uploadRes.data.imageUrl; 
+  
       const contract = new ethers.Contract(NFT_MARKET_ADDRESS, NFT_MARKET_ABI, signer);
       const tx = await contract.mintNFT(finalUri);
       await tx.wait();
     
-      await fetch('http://localhost:3001/api/nfts', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ creator: account, tokenUri: finalUri, name: nftName, description: nftDescription })
+      await axios.post('http://localhost:3001/api/nfts', {
+        creator: account,
+        tokenUri: finalUri, 
+        name: nftName, 
+        description: nftDescription
       });
-
-      alert(`NFT forjado com sucesso!\nA tua arte está guardada em: ${finalUri}`);
+  
+      alert(`Ativo forjado com sucesso!\nA sua arte está guardada na galeria.`);
       setNftFile(null); 
       fetchMarketData(account, signer);
-    } catch (err) { alert(err.message); }
+    } catch (err) { 
+      if (err.message.includes("user rejected")) return alert(" Criação cancelada pelo utilizador.");
+      alert(" Falha ao forjar o NFT. Verifique o servidor de imagens."); 
+    }
   };
 
   const fetchMarketData = async (userAddress, sig) => {
@@ -417,21 +464,104 @@ export default function Dashboard() {
   };
 
   const handleTerminateLoan = async () => {
+    if (!paymentLoanId || isNaN(paymentLoanId)) {
+      return alert(' Por favor, insira o ID do empréstimo que deseja encerrar na caixa respetiva.');
+    }
+
     try {
       const contract = new ethers.Contract(DEX_ADDRESS, DEX_ABI, signer);
-      const loan = await contract.loans(paymentLoanId); 
+      
+      
+      const loan = await contract.loans(paymentLoanId);
+      if (loan.amount.eq(0)) {
+        return alert(" Este ID de empréstimo não existe ou já se encontra fechado.");
+      }
+      if (loan.borrower.toLowerCase() !== account.toLowerCase()) {
+        return alert(" Não tem autorização para encerrar um empréstimo que não lhe pertence.");
+      }
+
       const totalToPay = loan.amount.add(loan.termination); 
-    
       const tx = await contract.terminateLoan(paymentLoanId, { value: totalToPay });
       await tx.wait();
     
-      alert('Empréstimo encerrado antecipadamente com sucesso!');
+      alert('Empréstimo encerrado antecipadamente com sucesso! O seu DEX foi devolvido.');
       fetchMyLoans(account, signer);
-    } catch (err) { alert(err.message); }
+      updateDexBalance(account, signer);
+    } catch (err) { 
+      if (err.message.includes("user rejected")) return alert("Transação cancelada.");
+      alert("Falha ao encerrar o empréstimo. Certifique-se de ter ETH suficiente para a multa e o capital."); 
+    }
+  };
+
+
+
+  // --- FUNÇÃO PARA LISTAR PARA VENDA (Atualiza a tua antiga) ---
+  const handleListNftForSale = async () => {
+    if (!listTokenId || !listPrice) return alert(' Preencha o Token ID e o Preço.');
+
+    try {
+      const contract = new ethers.Contract(NFT_MARKET_ADDRESS, NFT_MARKET_ABI, signer);
+      
+      // Validação: Pertence ao utilizador?
+      const owner = await contract.ownerOf(listTokenId);
+      if (owner.toLowerCase() !== account.toLowerCase()) return alert(" Este NFT não lhe pertence.");
+
+      await (await contract.approve(NFT_MARKET_ADDRESS, listTokenId)).wait();
+      await (await contract.listNFT(listTokenId, ethers.utils.parseEther(listPrice), isDexPayment)).wait();
+      
+      alert(' Listado para venda!');
+      fetchMarketData(account, signer);
+    } catch (err) {
+      alert(" Erro ao listar: " + (err.reason || err.message));
+    }
+  };
+
+  // --- FUNÇÃO PARA INICIAR LEILÃO ---
+  const handleStartAuction = async () => {
+    if (!auctionTokenId || !auctionMinPrice || !auctionDuration) return alert('⚠️ Preencha todos os campos do leilão.');
+
+    try {
+      const contract = new ethers.Contract(NFT_MARKET_ADDRESS, NFT_MARKET_ABI, signer);
+      
+      const owner = await contract.ownerOf(auctionTokenId);
+      if (owner.toLowerCase() !== account.toLowerCase()) return alert("❌ Não é o dono deste NFT.");
+
+      await (await contract.approve(NFT_MARKET_ADDRESS, auctionTokenId)).wait();
+      await (await contract.startAuction(auctionTokenId, ethers.utils.parseEther(auctionMinPrice), auctionDuration)).wait();
+      
+      alert('Leilão iniciado!');
+      fetchMarketData(account, signer);
+    } catch (err) {
+      alert(" Erro ao iniciar leilão: " + (err.reason || err.message));
+    }
+  };
+
+ 
+  const handleRequestP2pLoan = async () => {
+    const tId = document.getElementById('newLoanId')?.value;
+    const eth = document.getElementById('newLoanEth')?.value;
+    const time = document.getElementById('newLoanTime')?.value;
+
+    if (!tId || !eth || !time) return alert(' Preencha todos os campos de financiamento (ID, ETH e Prazo).');
+
+    try {
+      const contract = new ethers.Contract(NFT_MARKET_ADDRESS, NFT_MARKET_ABI, signer);
+      
+      const owner = await contract.ownerOf(tId);
+      if (owner.toLowerCase() !== account.toLowerCase()) return alert("❌ NFT não lhe pertence.");
+
+      await (await contract.approve(NFT_MARKET_ADDRESS, tId)).wait();
+      await (await contract.requestNftLoan(tId, ethers.utils.parseEther(eth), time)).wait();
+      
+      alert(' Pedido de financiamento P2P submetido!');
+      fetchMarketData(account, signer);
+    } catch (err) { 
+      alert("Erro no pedido P2P: " + (err.reason || err.message)); 
+    }
   };
 
   // ==============================================================
-  // 6. RENDERIZAÇÃO DA INTERFACE VISUAL
+  // INTERFACE VISUAL
   // ==============================================================
   return (
     <div style={{ background: '#0b0a12', color: '#eee', minHeight: '100vh', width: '100vw', margin: 0, padding: '2rem 1rem', boxSizing: 'border-box' }}>
@@ -871,13 +1001,9 @@ const resDb = await axios.get('http://localhost:3001/api/nfts');
                 <label style={{ display: 'block', marginBottom: '1rem', fontSize: '0.9rem', color: '#fff' }}>
                   <input type="checkbox" checked={isDexPayment} onChange={e => setIsDexPayment(e.target.checked)} /> Exigir DEX
                 </label>
-                <button style={{ ...btnStyle, background: '#10b981', width: '100%' }} onClick={async () => {
-                  const contract = new ethers.Contract(NFT_MARKET_ADDRESS, NFT_MARKET_ABI, signer);
-                  await (await contract.approve(NFT_MARKET_ADDRESS, listTokenId)).wait();
-                  await (await contract.listNFT(listTokenId, ethers.utils.parseEther(listPrice), isDexPayment)).wait();
-                  alert('Listado com sucesso!');
-                  fetchMarketData(account, signer);
-                }}>Publicar Venda</button>
+                <button style={{ ...btnStyle, background: '#10b981', width: '100%' }} onClick={
+                handleListNftForSale
+                }>Publicar Venda</button>
               </div>
 
               <div style={cardStyle}>
@@ -885,13 +1011,9 @@ const resDb = await axios.get('http://localhost:3001/api/nfts');
                 <input style={inputStyle} placeholder="Token ID" onChange={e => setAuctionTokenId(e.target.value)} />
                 <input style={inputStyle} placeholder="Preço Base (ETH)" onChange={e => setAuctionMinPrice(e.target.value)} />
                 <input style={inputStyle} placeholder="Segundos" onChange={e => setAuctionDuration(e.target.value)} />
-                <button style={{ ...btnStyle, background: '#d946ef', width: '100%' }} onClick={async () => {
-                  const contract = new ethers.Contract(NFT_MARKET_ADDRESS, NFT_MARKET_ABI, signer);
-                  await (await contract.approve(NFT_MARKET_ADDRESS, auctionTokenId)).wait();
-                  await (await contract.startAuction(auctionTokenId, ethers.utils.parseEther(auctionMinPrice), auctionDuration)).wait();
-                  alert('Leilão aberto!');
-                  fetchMarketData(account, signer);
-                }}>Abrir Leilão</button>
+                <button style={{ ...btnStyle, background: '#d946ef', width: '100%' }} onClick={
+                  handleStartAuction
+                }>Abrir Leilão</button>
               </div>
             </div>
           </section>
@@ -1121,16 +1243,7 @@ const resDb = await axios.get('http://localhost:3001/api/nfts');
                 <input id="newLoanTime" style={inputStyle} placeholder="Prazo (Segundos)" />
                 
                 <button style={{ ...btnStyle, background: '#2563eb', width: '100%', marginTop: '10px' }} onClick={async () => {
-                  try {
-                    const tId = document.getElementById('newLoanId').value;
-                    const eth = document.getElementById('newLoanEth').value;
-                    const time = document.getElementById('newLoanTime').value;
-                    const c = new ethers.Contract(NFT_MARKET_ADDRESS, NFT_MARKET_ABI, signer);
-                    await (await c.approve(NFT_MARKET_ADDRESS, tId)).wait();
-                    await (await c.requestNftLoan(tId, ethers.utils.parseEther(eth), time)).wait();
-                    alert('Pedido lançado no mercado!');
-                    fetchMarketData(account, signer);
-                  } catch(e) { alert(e.message); }
+                handleRequestP2pLoan
                 }}>Solicitar Financiamento</button>
               </div>
             </div>
