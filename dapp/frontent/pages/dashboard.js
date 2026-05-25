@@ -2,1749 +2,48 @@ import { useState, useEffect } from 'react';
 import { ethers } from 'ethers';
 import axios from 'axios';
 
-// Paste your compiled contract ABIs here after compiling in Remix/Hardhat
-const DEX_ABI =  [
-    {
-      "inputs": [
-        {
-          "internalType": "uint256",
-          "name": "_dexSwapRate",
-          "type": "uint256"
-        },
-        {
-          "internalType": "uint256",
-          "name": "_paymentCycle",
-          "type": "uint256"
-        },
-        {
-          "internalType": "uint256",
-          "name": "_interest",
-          "type": "uint256"
-        },
-        {
-          "internalType": "uint256",
-          "name": "_terminationFee",
-          "type": "uint256"
-        },
-        {
-          "internalType": "uint256",
-          "name": "_maxLoanDuration",
-          "type": "uint256"
-        }
-      ],
-      "stateMutability": "nonpayable",
-      "type": "constructor"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "address",
-          "name": "spender",
-          "type": "address"
-        },
-        {
-          "internalType": "uint256",
-          "name": "allowance",
-          "type": "uint256"
-        },
-        {
-          "internalType": "uint256",
-          "name": "needed",
-          "type": "uint256"
-        }
-      ],
-      "name": "ERC20InsufficientAllowance",
-      "type": "error"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "address",
-          "name": "sender",
-          "type": "address"
-        },
-        {
-          "internalType": "uint256",
-          "name": "balance",
-          "type": "uint256"
-        },
-        {
-          "internalType": "uint256",
-          "name": "needed",
-          "type": "uint256"
-        }
-      ],
-      "name": "ERC20InsufficientBalance",
-      "type": "error"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "address",
-          "name": "approver",
-          "type": "address"
-        }
-      ],
-      "name": "ERC20InvalidApprover",
-      "type": "error"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "address",
-          "name": "receiver",
-          "type": "address"
-        }
-      ],
-      "name": "ERC20InvalidReceiver",
-      "type": "error"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "address",
-          "name": "sender",
-          "type": "address"
-        }
-      ],
-      "name": "ERC20InvalidSender",
-      "type": "error"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "address",
-          "name": "spender",
-          "type": "address"
-        }
-      ],
-      "name": "ERC20InvalidSpender",
-      "type": "error"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "uint256",
-          "name": "valorEsperado",
-          "type": "uint256"
-        },
-        {
-          "internalType": "uint256",
-          "name": "valorEnviado",
-          "type": "uint256"
-        }
-      ],
-      "name": "ValorIncorreto",
-      "type": "error"
-    },
-    {
-      "anonymous": false,
-      "inputs": [
-        {
-          "indexed": true,
-          "internalType": "address",
-          "name": "owner",
-          "type": "address"
-        },
-        {
-          "indexed": true,
-          "internalType": "address",
-          "name": "spender",
-          "type": "address"
-        },
-        {
-          "indexed": false,
-          "internalType": "uint256",
-          "name": "value",
-          "type": "uint256"
-        }
-      ],
-      "name": "Approval",
-      "type": "event"
-    },
-    {
-      "anonymous": false,
-      "inputs": [
-        {
-          "indexed": true,
-          "internalType": "address",
-          "name": "from",
-          "type": "address"
-        },
-        {
-          "indexed": true,
-          "internalType": "address",
-          "name": "to",
-          "type": "address"
-        },
-        {
-          "indexed": false,
-          "internalType": "uint256",
-          "name": "value",
-          "type": "uint256"
-        }
-      ],
-      "name": "Transfer",
-      "type": "event"
-    },
-    {
-      "anonymous": false,
-      "inputs": [
-        {
-          "indexed": false,
-          "internalType": "address",
-          "name": "borrower",
-          "type": "address"
-        },
-        {
-          "indexed": false,
-          "internalType": "uint256",
-          "name": "amount",
-          "type": "uint256"
-        },
-        {
-          "indexed": false,
-          "internalType": "uint256",
-          "name": "deadline",
-          "type": "uint256"
-        }
-      ],
-      "name": "loanCreated",
-      "type": "event"
-    },
-    {
-      "anonymous": false,
-      "inputs": [
-        {
-          "indexed": false,
-          "internalType": "address",
-          "name": "borrower",
-          "type": "address"
-        },
-        {
-          "indexed": false,
-          "internalType": "uint256",
-          "name": "amount",
-          "type": "uint256"
-        }
-      ],
-      "name": "loanFinished",
-      "type": "event"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "address",
-          "name": "owner",
-          "type": "address"
-        },
-        {
-          "internalType": "address",
-          "name": "spender",
-          "type": "address"
-        }
-      ],
-      "name": "allowance",
-      "outputs": [
-        {
-          "internalType": "uint256",
-          "name": "",
-          "type": "uint256"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "address",
-          "name": "spender",
-          "type": "address"
-        },
-        {
-          "internalType": "uint256",
-          "name": "value",
-          "type": "uint256"
-        }
-      ],
-      "name": "approve",
-      "outputs": [
-        {
-          "internalType": "bool",
-          "name": "",
-          "type": "bool"
-        }
-      ],
-      "stateMutability": "nonpayable",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "address",
-          "name": "account",
-          "type": "address"
-        }
-      ],
-      "name": "balanceOf",
-      "outputs": [
-        {
-          "internalType": "uint256",
-          "name": "",
-          "type": "uint256"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [],
-      "name": "buyDex",
-      "outputs": [],
-      "stateMutability": "payable",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "uint256",
-          "name": "loanId",
-          "type": "uint256"
-        }
-      ],
-      "name": "checkLoan",
-      "outputs": [],
-      "stateMutability": "nonpayable",
-      "type": "function"
-    },
-    {
-      "inputs": [],
-      "name": "decimals",
-      "outputs": [
-        {
-          "internalType": "uint8",
-          "name": "",
-          "type": "uint8"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [],
-      "name": "dexSwapRate",
-      "outputs": [
-        {
-          "internalType": "uint256",
-          "name": "",
-          "type": "uint256"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [],
-      "name": "getBalance",
-      "outputs": [
-        {
-          "internalType": "uint256",
-          "name": "",
-          "type": "uint256"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [],
-      "name": "getDexBalance",
-      "outputs": [
-        {
-          "internalType": "uint256",
-          "name": "",
-          "type": "uint256"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [],
-      "name": "globalInterest",
-      "outputs": [
-        {
-          "internalType": "uint256",
-          "name": "",
-          "type": "uint256"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [],
-      "name": "globalPaymentCycle",
-      "outputs": [
-        {
-          "internalType": "uint256",
-          "name": "",
-          "type": "uint256"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [],
-      "name": "globalTerminationFee",
-      "outputs": [
-        {
-          "internalType": "uint256",
-          "name": "",
-          "type": "uint256"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "uint256",
-          "name": "dexAmount",
-          "type": "uint256"
-        },
-        {
-          "internalType": "uint256",
-          "name": "deadline",
-          "type": "uint256"
-        }
-      ],
-      "name": "loan",
-      "outputs": [
-        {
-          "internalType": "uint256",
-          "name": "",
-          "type": "uint256"
-        }
-      ],
-      "stateMutability": "nonpayable",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "uint256",
-          "name": "",
-          "type": "uint256"
-        }
-      ],
-      "name": "loans",
-      "outputs": [
-        {
-          "internalType": "address",
-          "name": "borrower",
-          "type": "address"
-        },
-        {
-          "internalType": "uint256",
-          "name": "collateral",
-          "type": "uint256"
-        },
-        {
-          "internalType": "uint256",
-          "name": "amount",
-          "type": "uint256"
-        },
-        {
-          "internalType": "uint256",
-          "name": "deadline",
-          "type": "uint256"
-        },
-        {
-          "internalType": "uint256",
-          "name": "paymentCycle",
-          "type": "uint256"
-        },
-        {
-          "internalType": "uint256",
-          "name": "interest",
-          "type": "uint256"
-        },
-        {
-          "internalType": "uint256",
-          "name": "termination",
-          "type": "uint256"
-        },
-        {
-          "internalType": "uint256",
-          "name": "lastPaymentTime",
-          "type": "uint256"
-        },
-        {
-          "internalType": "uint256",
-          "name": "paymentsMade",
-          "type": "uint256"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "uint256",
-          "name": "loanId",
-          "type": "uint256"
-        }
-      ],
-      "name": "makePayment",
-      "outputs": [],
-      "stateMutability": "payable",
-      "type": "function"
-    },
-    {
-      "inputs": [],
-      "name": "maxLoanDuration",
-      "outputs": [
-        {
-          "internalType": "uint256",
-          "name": "",
-          "type": "uint256"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [],
-      "name": "name",
-      "outputs": [
-        {
-          "internalType": "string",
-          "name": "",
-          "type": "string"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [],
-      "name": "owner",
-      "outputs": [
-        {
-          "internalType": "address",
-          "name": "",
-          "type": "address"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "uint256",
-          "name": "dexAmount",
-          "type": "uint256"
-        }
-      ],
-      "name": "sellDex",
-      "outputs": [],
-      "stateMutability": "nonpayable",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "uint256",
-          "name": "_newRate",
-          "type": "uint256"
-        }
-      ],
-      "name": "setDexSwapRate",
-      "outputs": [],
-      "stateMutability": "nonpayable",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "uint256",
-          "name": "_cycle",
-          "type": "uint256"
-        },
-        {
-          "internalType": "uint256",
-          "name": "_interest",
-          "type": "uint256"
-        },
-        {
-          "internalType": "uint256",
-          "name": "_fee",
-          "type": "uint256"
-        },
-        {
-          "internalType": "uint256",
-          "name": "_maxDuration",
-          "type": "uint256"
-        }
-      ],
-      "name": "setGlobalParams",
-      "outputs": [],
-      "stateMutability": "nonpayable",
-      "type": "function"
-    },
-    {
-      "inputs": [],
-      "name": "symbol",
-      "outputs": [
-        {
-          "internalType": "string",
-          "name": "",
-          "type": "string"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "uint256",
-          "name": "loanId",
-          "type": "uint256"
-        }
-      ],
-      "name": "terminateLoan",
-      "outputs": [],
-      "stateMutability": "payable",
-      "type": "function"
-    },
-    {
-      "inputs": [],
-      "name": "totalSupply",
-      "outputs": [
-        {
-          "internalType": "uint256",
-          "name": "",
-          "type": "uint256"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "address",
-          "name": "to",
-          "type": "address"
-        },
-        {
-          "internalType": "uint256",
-          "name": "value",
-          "type": "uint256"
-        }
-      ],
-      "name": "transfer",
-      "outputs": [
-        {
-          "internalType": "bool",
-          "name": "",
-          "type": "bool"
-        }
-      ],
-      "stateMutability": "nonpayable",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "address",
-          "name": "from",
-          "type": "address"
-        },
-        {
-          "internalType": "address",
-          "name": "to",
-          "type": "address"
-        },
-        {
-          "internalType": "uint256",
-          "name": "value",
-          "type": "uint256"
-        }
-      ],
-      "name": "transferFrom",
-      "outputs": [
-        {
-          "internalType": "bool",
-          "name": "",
-          "type": "bool"
-        }
-      ],
-      "stateMutability": "nonpayable",
-      "type": "function"
-    },
-    {
-      "stateMutability": "payable",
-      "type": "receive"
-    }
-  ];
-
-const NFT_MARKET_ABI = [
-    {
-      "inputs": [
-        {
-          "internalType": "address payable",
-          "name": "_dexContractAddress",
-          "type": "address"
-        }
-      ],
-      "stateMutability": "nonpayable",
-      "type": "constructor"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "address",
-          "name": "sender",
-          "type": "address"
-        },
-        {
-          "internalType": "uint256",
-          "name": "tokenId",
-          "type": "uint256"
-        },
-        {
-          "internalType": "address",
-          "name": "owner",
-          "type": "address"
-        }
-      ],
-      "name": "ERC721IncorrectOwner",
-      "type": "error"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "address",
-          "name": "operator",
-          "type": "address"
-        },
-        {
-          "internalType": "uint256",
-          "name": "tokenId",
-          "type": "uint256"
-        }
-      ],
-      "name": "ERC721InsufficientApproval",
-      "type": "error"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "address",
-          "name": "approver",
-          "type": "address"
-        }
-      ],
-      "name": "ERC721InvalidApprover",
-      "type": "error"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "address",
-          "name": "operator",
-          "type": "address"
-        }
-      ],
-      "name": "ERC721InvalidOperator",
-      "type": "error"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "address",
-          "name": "owner",
-          "type": "address"
-        }
-      ],
-      "name": "ERC721InvalidOwner",
-      "type": "error"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "address",
-          "name": "receiver",
-          "type": "address"
-        }
-      ],
-      "name": "ERC721InvalidReceiver",
-      "type": "error"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "address",
-          "name": "sender",
-          "type": "address"
-        }
-      ],
-      "name": "ERC721InvalidSender",
-      "type": "error"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "uint256",
-          "name": "tokenId",
-          "type": "uint256"
-        }
-      ],
-      "name": "ERC721NonexistentToken",
-      "type": "error"
-    },
-    {
-      "anonymous": false,
-      "inputs": [
-        {
-          "indexed": true,
-          "internalType": "address",
-          "name": "owner",
-          "type": "address"
-        },
-        {
-          "indexed": true,
-          "internalType": "address",
-          "name": "approved",
-          "type": "address"
-        },
-        {
-          "indexed": true,
-          "internalType": "uint256",
-          "name": "tokenId",
-          "type": "uint256"
-        }
-      ],
-      "name": "Approval",
-      "type": "event"
-    },
-    {
-      "anonymous": false,
-      "inputs": [
-        {
-          "indexed": true,
-          "internalType": "address",
-          "name": "owner",
-          "type": "address"
-        },
-        {
-          "indexed": true,
-          "internalType": "address",
-          "name": "operator",
-          "type": "address"
-        },
-        {
-          "indexed": false,
-          "internalType": "bool",
-          "name": "approved",
-          "type": "bool"
-        }
-      ],
-      "name": "ApprovalForAll",
-      "type": "event"
-    },
-    {
-      "anonymous": false,
-      "inputs": [
-        {
-          "indexed": true,
-          "internalType": "uint256",
-          "name": "tokenId",
-          "type": "uint256"
-        },
-        {
-          "indexed": false,
-          "internalType": "uint256",
-          "name": "minPrice",
-          "type": "uint256"
-        },
-        {
-          "indexed": false,
-          "internalType": "uint256",
-          "name": "endTime",
-          "type": "uint256"
-        }
-      ],
-      "name": "AuctionStarted",
-      "type": "event"
-    },
-    {
-      "anonymous": false,
-      "inputs": [
-        {
-          "indexed": false,
-          "internalType": "uint256",
-          "name": "_fromTokenId",
-          "type": "uint256"
-        },
-        {
-          "indexed": false,
-          "internalType": "uint256",
-          "name": "_toTokenId",
-          "type": "uint256"
-        }
-      ],
-      "name": "BatchMetadataUpdate",
-      "type": "event"
-    },
-    {
-      "anonymous": false,
-      "inputs": [
-        {
-          "indexed": true,
-          "internalType": "uint256",
-          "name": "tokenId",
-          "type": "uint256"
-        },
-        {
-          "indexed": false,
-          "internalType": "address",
-          "name": "bidder",
-          "type": "address"
-        },
-        {
-          "indexed": false,
-          "internalType": "uint256",
-          "name": "amount",
-          "type": "uint256"
-        }
-      ],
-      "name": "BidPlaced",
-      "type": "event"
-    },
-    {
-      "anonymous": false,
-      "inputs": [
-        {
-          "indexed": false,
-          "internalType": "uint256",
-          "name": "_tokenId",
-          "type": "uint256"
-        }
-      ],
-      "name": "MetadataUpdate",
-      "type": "event"
-    },
-    {
-      "anonymous": false,
-      "inputs": [
-        {
-          "indexed": true,
-          "internalType": "uint256",
-          "name": "tokenId",
-          "type": "uint256"
-        },
-        {
-          "indexed": false,
-          "internalType": "uint256",
-          "name": "price",
-          "type": "uint256"
-        },
-        {
-          "indexed": false,
-          "internalType": "bool",
-          "name": "isDexPayment",
-          "type": "bool"
-        }
-      ],
-      "name": "NFTListed",
-      "type": "event"
-    },
-    {
-      "anonymous": false,
-      "inputs": [
-        {
-          "indexed": true,
-          "internalType": "address",
-          "name": "owner",
-          "type": "address"
-        },
-        {
-          "indexed": false,
-          "internalType": "uint256",
-          "name": "tokenId",
-          "type": "uint256"
-        },
-        {
-          "indexed": false,
-          "internalType": "string",
-          "name": "tokenURI",
-          "type": "string"
-        }
-      ],
-      "name": "NFTMinted",
-      "type": "event"
-    },
-    {
-      "anonymous": false,
-      "inputs": [
-        {
-          "indexed": true,
-          "internalType": "uint256",
-          "name": "tokenId",
-          "type": "uint256"
-        },
-        {
-          "indexed": false,
-          "internalType": "address",
-          "name": "buyer",
-          "type": "address"
-        },
-        {
-          "indexed": false,
-          "internalType": "address",
-          "name": "seller",
-          "type": "address"
-        },
-        {
-          "indexed": false,
-          "internalType": "uint256",
-          "name": "price",
-          "type": "uint256"
-        }
-      ],
-      "name": "NFTSold",
-      "type": "event"
-    },
-    {
-      "anonymous": false,
-      "inputs": [
-        {
-          "indexed": true,
-          "internalType": "uint256",
-          "name": "loanId",
-          "type": "uint256"
-        },
-        {
-          "indexed": false,
-          "internalType": "address",
-          "name": "provider",
-          "type": "address"
-        }
-      ],
-      "name": "NftLoanFunded",
-      "type": "event"
-    },
-    {
-      "anonymous": false,
-      "inputs": [
-        {
-          "indexed": true,
-          "internalType": "uint256",
-          "name": "loanId",
-          "type": "uint256"
-        }
-      ],
-      "name": "NftLoanLiquidated",
-      "type": "event"
-    },
-    {
-      "anonymous": false,
-      "inputs": [
-        {
-          "indexed": true,
-          "internalType": "uint256",
-          "name": "loanId",
-          "type": "uint256"
-        }
-      ],
-      "name": "NftLoanRepaid",
-      "type": "event"
-    },
-    {
-      "anonymous": false,
-      "inputs": [
-        {
-          "indexed": true,
-          "internalType": "uint256",
-          "name": "loanId",
-          "type": "uint256"
-        },
-        {
-          "indexed": false,
-          "internalType": "address",
-          "name": "borrower",
-          "type": "address"
-        },
-        {
-          "indexed": false,
-          "internalType": "uint256",
-          "name": "tokenId",
-          "type": "uint256"
-        },
-        {
-          "indexed": false,
-          "internalType": "uint256",
-          "name": "ethRequested",
-          "type": "uint256"
-        }
-      ],
-      "name": "NftLoanRequested",
-      "type": "event"
-    },
-    {
-      "anonymous": false,
-      "inputs": [
-        {
-          "indexed": true,
-          "internalType": "address",
-          "name": "from",
-          "type": "address"
-        },
-        {
-          "indexed": true,
-          "internalType": "address",
-          "name": "to",
-          "type": "address"
-        },
-        {
-          "indexed": true,
-          "internalType": "uint256",
-          "name": "tokenId",
-          "type": "uint256"
-        }
-      ],
-      "name": "Transfer",
-      "type": "event"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "address",
-          "name": "to",
-          "type": "address"
-        },
-        {
-          "internalType": "uint256",
-          "name": "tokenId",
-          "type": "uint256"
-        }
-      ],
-      "name": "approve",
-      "outputs": [],
-      "stateMutability": "nonpayable",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "uint256",
-          "name": "",
-          "type": "uint256"
-        }
-      ],
-      "name": "auctions",
-      "outputs": [
-        {
-          "internalType": "address",
-          "name": "seller",
-          "type": "address"
-        },
-        {
-          "internalType": "uint256",
-          "name": "minPrice",
-          "type": "uint256"
-        },
-        {
-          "internalType": "uint256",
-          "name": "highestBid",
-          "type": "uint256"
-        },
-        {
-          "internalType": "address",
-          "name": "highestBidder",
-          "type": "address"
-        },
-        {
-          "internalType": "uint256",
-          "name": "endTime",
-          "type": "uint256"
-        },
-        {
-          "internalType": "bool",
-          "name": "active",
-          "type": "bool"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "address",
-          "name": "owner",
-          "type": "address"
-        }
-      ],
-      "name": "balanceOf",
-      "outputs": [
-        {
-          "internalType": "uint256",
-          "name": "",
-          "type": "uint256"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "uint256",
-          "name": "tokenId",
-          "type": "uint256"
-        }
-      ],
-      "name": "burnNFT",
-      "outputs": [],
-      "stateMutability": "nonpayable",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "uint256",
-          "name": "tokenId",
-          "type": "uint256"
-        }
-      ],
-      "name": "buyNFT",
-      "outputs": [],
-      "stateMutability": "payable",
-      "type": "function"
-    },
-    {
-      "inputs": [],
-      "name": "dexContract",
-      "outputs": [
-        {
-          "internalType": "contract DecentralizedFinance",
-          "name": "",
-          "type": "address"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "uint256",
-          "name": "tokenId",
-          "type": "uint256"
-        }
-      ],
-      "name": "endAuction",
-      "outputs": [],
-      "stateMutability": "nonpayable",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "uint256",
-          "name": "loanId",
-          "type": "uint256"
-        }
-      ],
-      "name": "fundNftLoan",
-      "outputs": [],
-      "stateMutability": "payable",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "uint256",
-          "name": "tokenId",
-          "type": "uint256"
-        }
-      ],
-      "name": "getApproved",
-      "outputs": [
-        {
-          "internalType": "address",
-          "name": "",
-          "type": "address"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "address",
-          "name": "owner",
-          "type": "address"
-        },
-        {
-          "internalType": "address",
-          "name": "operator",
-          "type": "address"
-        }
-      ],
-      "name": "isApprovedForAll",
-      "outputs": [
-        {
-          "internalType": "bool",
-          "name": "",
-          "type": "bool"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "uint256",
-          "name": "loanId",
-          "type": "uint256"
-        }
-      ],
-      "name": "liquidateNftLoan",
-      "outputs": [],
-      "stateMutability": "nonpayable",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "uint256",
-          "name": "tokenId",
-          "type": "uint256"
-        },
-        {
-          "internalType": "uint256",
-          "name": "price",
-          "type": "uint256"
-        },
-        {
-          "internalType": "bool",
-          "name": "isDexPayment",
-          "type": "bool"
-        }
-      ],
-      "name": "listNFT",
-      "outputs": [],
-      "stateMutability": "nonpayable",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "uint256",
-          "name": "",
-          "type": "uint256"
-        }
-      ],
-      "name": "listings",
-      "outputs": [
-        {
-          "internalType": "address",
-          "name": "seller",
-          "type": "address"
-        },
-        {
-          "internalType": "uint256",
-          "name": "price",
-          "type": "uint256"
-        },
-        {
-          "internalType": "bool",
-          "name": "isDexPayment",
-          "type": "bool"
-        },
-        {
-          "internalType": "bool",
-          "name": "active",
-          "type": "bool"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "string",
-          "name": "tokenURI",
-          "type": "string"
-        }
-      ],
-      "name": "mintNFT",
-      "outputs": [
-        {
-          "internalType": "uint256",
-          "name": "",
-          "type": "uint256"
-        }
-      ],
-      "stateMutability": "nonpayable",
-      "type": "function"
-    },
-    {
-      "inputs": [],
-      "name": "name",
-      "outputs": [
-        {
-          "internalType": "string",
-          "name": "",
-          "type": "string"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "uint256",
-          "name": "",
-          "type": "uint256"
-        }
-      ],
-      "name": "nftLoans",
-      "outputs": [
-        {
-          "internalType": "address",
-          "name": "borrower",
-          "type": "address"
-        },
-        {
-          "internalType": "address",
-          "name": "provider",
-          "type": "address"
-        },
-        {
-          "internalType": "uint256",
-          "name": "tokenId",
-          "type": "uint256"
-        },
-        {
-          "internalType": "uint256",
-          "name": "ethRequested",
-          "type": "uint256"
-        },
-        {
-          "internalType": "uint256",
-          "name": "dexRequired",
-          "type": "uint256"
-        },
-        {
-          "internalType": "uint256",
-          "name": "expiry",
-          "type": "uint256"
-        },
-        {
-          "internalType": "bool",
-          "name": "funded",
-          "type": "bool"
-        },
-        {
-          "internalType": "bool",
-          "name": "active",
-          "type": "bool"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "uint256",
-          "name": "tokenId",
-          "type": "uint256"
-        }
-      ],
-      "name": "ownerOf",
-      "outputs": [
-        {
-          "internalType": "address",
-          "name": "",
-          "type": "address"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "uint256",
-          "name": "tokenId",
-          "type": "uint256"
-        }
-      ],
-      "name": "placeBid",
-      "outputs": [],
-      "stateMutability": "payable",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "uint256",
-          "name": "loanId",
-          "type": "uint256"
-        }
-      ],
-      "name": "repayNftLoan",
-      "outputs": [],
-      "stateMutability": "payable",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "uint256",
-          "name": "tokenId",
-          "type": "uint256"
-        },
-        {
-          "internalType": "uint256",
-          "name": "ethRequested",
-          "type": "uint256"
-        },
-        {
-          "internalType": "uint256",
-          "name": "durationSecs",
-          "type": "uint256"
-        }
-      ],
-      "name": "requestNftLoan",
-      "outputs": [],
-      "stateMutability": "nonpayable",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "address",
-          "name": "from",
-          "type": "address"
-        },
-        {
-          "internalType": "address",
-          "name": "to",
-          "type": "address"
-        },
-        {
-          "internalType": "uint256",
-          "name": "tokenId",
-          "type": "uint256"
-        }
-      ],
-      "name": "safeTransferFrom",
-      "outputs": [],
-      "stateMutability": "nonpayable",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "address",
-          "name": "from",
-          "type": "address"
-        },
-        {
-          "internalType": "address",
-          "name": "to",
-          "type": "address"
-        },
-        {
-          "internalType": "uint256",
-          "name": "tokenId",
-          "type": "uint256"
-        },
-        {
-          "internalType": "bytes",
-          "name": "data",
-          "type": "bytes"
-        }
-      ],
-      "name": "safeTransferFrom",
-      "outputs": [],
-      "stateMutability": "nonpayable",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "address",
-          "name": "operator",
-          "type": "address"
-        },
-        {
-          "internalType": "bool",
-          "name": "approved",
-          "type": "bool"
-        }
-      ],
-      "name": "setApprovalForAll",
-      "outputs": [],
-      "stateMutability": "nonpayable",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "uint256",
-          "name": "tokenId",
-          "type": "uint256"
-        },
-        {
-          "internalType": "uint256",
-          "name": "minPrice",
-          "type": "uint256"
-        },
-        {
-          "internalType": "uint256",
-          "name": "durationSecs",
-          "type": "uint256"
-        }
-      ],
-      "name": "startAuction",
-      "outputs": [],
-      "stateMutability": "nonpayable",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "bytes4",
-          "name": "interfaceId",
-          "type": "bytes4"
-        }
-      ],
-      "name": "supportsInterface",
-      "outputs": [
-        {
-          "internalType": "bool",
-          "name": "",
-          "type": "bool"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [],
-      "name": "symbol",
-      "outputs": [
-        {
-          "internalType": "string",
-          "name": "",
-          "type": "string"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "uint256",
-          "name": "tokenId",
-          "type": "uint256"
-        }
-      ],
-      "name": "tokenURI",
-      "outputs": [
-        {
-          "internalType": "string",
-          "name": "",
-          "type": "string"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "address",
-          "name": "from",
-          "type": "address"
-        },
-        {
-          "internalType": "address",
-          "name": "to",
-          "type": "address"
-        },
-        {
-          "internalType": "uint256",
-          "name": "tokenId",
-          "type": "uint256"
-        }
-      ],
-      "name": "transferFrom",
-      "outputs": [],
-      "stateMutability": "nonpayable",
-      "type": "function"
-    }
-  ];
-const DEX_ADDRESS = "0x5FbDB2315678afecb367f032d93F642f64180aa3";
-const NFT_MARKET_ADDRESS = "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512";
-
-
 export default function Dashboard() {
-    const [selectedMyNft, setSelectedMyNft] = useState(null);
-const [selectedSale, setSelectedSale] = useState(null);
 
-    const [nftName, setNftName] = useState('');
-const [nftDescription, setNftDescription] = useState('');
-const [backendNfts, setBackendNfts] = useState([]); // Para guardar a base de dados
-    const [selectedP2pLoan, setSelectedP2pLoan] = useState(null);
+  // ==============================================================
+  // 1. TODOS OS ESTADOS (HOOKS) DECLARADOS NO INÍCIO
+  // ==============================================================
+  const [blockchainConfig, setBlockchainConfig] = useState(null);
+  const [loadingConfig, setLoadingConfig] = useState(true);
+  const [configError, setConfigError] = useState(false);
 
-    const [isP2pMarketOpen, setIsP2pMarketOpen] = useState(false);
-const [isP2pInvestmentsOpen, setIsP2pInvestmentsOpen] = useState(false);
-const [isP2pMyLoansOpen, setIsP2pMyLoansOpen] = useState(false);
-    const [bidHistory, setBidHistory] = useState([]);
-  const [isGalleryOpen, setIsGalleryOpen] = useState(false); // Começa fechado por defeito
+  const [selectedMyNft, setSelectedMyNft] = useState(null);
+  const [selectedSale, setSelectedSale] = useState(null);
+
+  const [nftName, setNftName] = useState('');
+  const [nftDescription, setNftDescription] = useState('');
+  const [backendNfts, setBackendNfts] = useState([]); 
+  const [selectedP2pLoan, setSelectedP2pLoan] = useState(null);
+
+  const [isP2pMarketOpen, setIsP2pMarketOpen] = useState(false);
+  const [isP2pInvestmentsOpen, setIsP2pInvestmentsOpen] = useState(false);
+  const [isP2pMyLoansOpen, setIsP2pMyLoansOpen] = useState(false);
+  const [bidHistory, setBidHistory] = useState([]);
+  const [isGalleryOpen, setIsGalleryOpen] = useState(false); 
   const [isSalesOpen, setIsSalesOpen] = useState(false);    
-const [isAuctionsOpen, setIsAuctionsOpen] = useState(false);  
+  const [isAuctionsOpen, setIsAuctionsOpen] = useState(false);  
 
-const [selectedAuction, setSelectedAuction] = useState(null);
-const [timeLeft, setTimeLeft] = useState('');
+  const [selectedAuction, setSelectedAuction] = useState(null);
+  const [timeLeft, setTimeLeft] = useState('');
 
-    const [myNfts, setMyNfts] = useState([]);
-    const [nftFile, setNftFile] = useState(null);
+  const [myNfts, setMyNfts] = useState([]);
+  const [nftFile, setNftFile] = useState(null);
   const [provider, setProvider] = useState(null);
   const [signer, setSigner] = useState(null);
   const [account, setAccount] = useState('');
   const [activeTab, setActiveTab] = useState('dex');
   const [marketListings, setMarketListings] = useState([]);
-const [activeAuctions, setActiveAuctions] = useState([]);
-const [p2pTab, setP2pTab] = useState('market'); // 'market', 'borrower', ou 'lender'
-const [allP2pLoans, setAllP2pLoans] = useState([]);
+  const [activeAuctions, setActiveAuctions] = useState([]);
+  const [p2pTab, setP2pTab] = useState('market'); 
+  const [allP2pLoans, setAllP2pLoans] = useState([]);
   
-  // Informação de Sessão Off-Chain e Blockchain
   const [sessionUser, setSessionUser] = useState(null);
   const [dexBalance, setDexBalance] = useState('0');
 
-  // Form/UI States DEX
   const [dexAmount, setDexAmount] = useState('');
   const [ethAmount, setEthAmount] = useState('');
   const [loanCollateral, setLoanCollateral] = useState('');
@@ -1752,7 +51,6 @@ const [allP2pLoans, setAllP2pLoans] = useState([]);
   const [paymentLoanId, setPaymentLoanId] = useState('');
   const [paymentValue, setPaymentValue] = useState('');
   
-  // Form/UI States NFT Marketplace
   const [nftUri, setNftUri] = useState('');
   const [listTokenId, setListTokenId] = useState('');
   const [listPrice, setListPrice] = useState('');
@@ -1760,7 +58,6 @@ const [allP2pLoans, setAllP2pLoans] = useState([]);
   const [buyTokenId, setBuyTokenId] = useState('');
   const [burnTokenId, setBurnTokenId] = useState('');
   
-  // Form/UI States NFT Auctions
   const [auctionTokenId, setAuctionTokenId] = useState('');
   const [auctionMinPrice, setAuctionMinPrice] = useState('');
   const [auctionDuration, setAuctionDuration] = useState('');
@@ -1768,37 +65,141 @@ const [allP2pLoans, setAllP2pLoans] = useState([]);
   const [bidAmount, setBidAmount] = useState('');
   const [endAuctionTokenId, setEndAuctionTokenId] = useState('');
 
-  // Form/UI States P2P Loans
   const [p2pLoanId, setP2pLoanId] = useState('');
   const [p2pEthRequest, setP2pEthRequest] = useState('');
   const [repayLoanId, setRepayLoanId] = useState('');
   const [repayAmount, setRepayAmount] = useState('');
   const [liquidateLoanId, setLiquidateLoanId] = useState('');
 
-  // --- NOVOS STATES PARA GUARDAR OS EMPRÉSTIMOS ---
   const [myDexLoans, setMyDexLoans] = useState([]);
   const [myP2pLoans, setMyP2pLoans] = useState([]);
 
+  // ==============================================================
+  // 2. TODOS OS USE EFFECTS
+  // ==============================================================
+
+  // A. OBTER CONFIGURAÇÃO WEB2.5
+  useEffect(() => {
+    const fetchBlockchainInfrastructure = async () => {
+      try {
+        const res = await axios.get('http://localhost:3001/api/blockchain/config');
+        setBlockchainConfig(res.data);
+        setLoadingConfig(false); 
+      } catch (e) {
+        console.error("Falha crítica ao obter ecossistema Web2.5 do backend:", e);
+        setConfigError(true);
+        setLoadingConfig(false);
+      }
+    };
+    fetchBlockchainInfrastructure();
+  }, []);
+
+  // B. OBTER SESSÃO E DADOS DO BACKEND (NFTS)
   useEffect(() => {
     if (window.ethereum) {
       const prov = new ethers.providers.Web3Provider(window.ethereum);
       setProvider(prov);
     }
 
-    
     const cachedUser = localStorage.getItem('user');
     if (cachedUser) setSessionUser(JSON.parse(cachedUser));
 
-    // Podes colocar isto onde lês os teus outros dados do utilizador
-const fetchBackendData = async () => {
-  try {
-    const res = await axios.get('http://localhost:3001/api/nfts');
-    setBackendNfts(res.data);
-  } catch(e) { console.error("Erro a ler DB:", e); }
-};
-fetchBackendData();
+    const fetchBackendData = async () => {
+      try {
+        const res = await axios.get('http://localhost:3001/api/nfts');
+        setBackendNfts(res.data);
+      } catch(e) { console.error("Erro a ler DB:", e); }
+    };
+    fetchBackendData();
   }, []);
 
+  // C. RELÓGIO AO VIVO E HISTÓRICO DE EVENTOS PARA O LEILÃO
+  useEffect(() => {
+    // Proteção rigorosa: Não arranca se não houver config ou leilão selecionado!
+    if (!selectedAuction || !blockchainConfig) return;
+
+    const fetchHistory = async () => {
+      try {
+        const contract = new ethers.Contract(blockchainConfig.NFT_MARKET_ADDRESS, blockchainConfig.NFT_MARKET_ABI, signer);
+        const filter = contract.filters.BidPlaced(selectedAuction.tokenId);
+        const events = await contract.queryFilter(filter);
+        
+        const history = events.map(e => ({
+          bidder: e.args.bidder,
+          amount: e.args.amount
+        })).reverse(); 
+        
+        setBidHistory(history);
+      } catch (err) { console.error("Erro ao ler histórico:", err); }
+    };
+    fetchHistory();
+
+    const interval = setInterval(() => {
+      const now = Math.floor(Date.now() / 1000);
+      const end = selectedAuction.endTime.toNumber(); 
+      
+      if (now >= end) {
+        setTimeLeft("🔴 Leilão Terminado");
+        clearInterval(interval);
+      } else {
+        const diff = end - now;
+        const h = Math.floor(diff / 3600);
+        const m = Math.floor((diff % 3600) / 60);
+        const s = diff % 60;
+        setTimeLeft(`⏳ ${h}h ${m}m ${s}s`);
+      }
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [selectedAuction, signer, blockchainConfig]);
+
+
+  // ==============================================================
+  // 3. ECRÃS DE PARAGEM OBRIGATÓRIA (ERROS E LOADING)
+  // ==============================================================
+
+  if (configError) {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', height: '100vh', background: '#450a0a', color: '#fff', textAlign: 'center', padding: '2rem' }}>
+        <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>🚨</div>
+        <b style={{ fontSize: '1.5rem', color: '#fca5a5' }}>Falha Crítica de Conexão (Web2.5)</b>
+        <p style={{ color: '#fecaca', maxWidth: '500px', lineHeight: '1.5' }}>
+          O Frontend não conseguiu contactar o teu servidor Node.js no porto 3001 para obter os endereços da Blockchain.
+        </p>
+        <div style={{ background: '#270404', padding: '1.5rem', borderRadius: '8px', textAlign: 'left', border: '1px solid #7f1d1d', marginTop: '1rem' }}>
+          <b style={{ color: '#fff' }}>Checklist de Resolução:</b>
+          <ol style={{ color: '#fca5a5', margin: '10px 0 0 0', paddingLeft: '20px' }}>
+            <li>Abre um terminal na pasta do teu Backend e corre: <code>node server.js</code></li>
+            <li>Garante que fizeste o deploy no Hardhat para gerar o ficheiro de configuração.</li>
+            <li>Atualiza esta página.</li>
+          </ol>
+        </div>
+      </div>
+    );
+  }
+
+  if (loadingConfig || !blockchainConfig) {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', height: '100vh', background: '#0f172a', color: '#fff' }}>
+        <div style={{ fontSize: '2rem' }}>⏳</div>
+        <b style={{ fontSize: '1.2rem', color: '#38bdf8' }}>Sincronização Web2.5 Operacional</b>
+        <p style={{ color: '#94a3b8' }}>A carregar ABIs, Contratos e Endereços dinâmicos...</p>
+      </div>
+    );
+  }
+
+  // ==============================================================
+  // 4. MAPEAR AS VARIÁVEIS (Seguro porque o loading já passou)
+  // ==============================================================
+  const DEX_ADDRESS = blockchainConfig.DEX_ADDRESS;
+  const NFT_MARKET_ADDRESS = blockchainConfig.NFT_MARKET_ADDRESS;
+  const DEX_ABI = blockchainConfig.DEX_ABI;
+  const NFT_MARKET_ABI = blockchainConfig.NFT_MARKET_ABI;
+
+
+  // ==============================================================
+  // 5. AS FUNÇÕES DA APLICAÇÃO
+  // ==============================================================
   const connectWallet = async () => {
     if (!provider) return alert('MetaMask não detetada!');
     await provider.send("eth_requestAccounts", []);
@@ -1811,32 +212,24 @@ fetchBackendData();
     fetchMarketData(addr, sig);
   };
 
-
-
   const updateDexBalance = async (addr, sig) => {
     try {
       const contract = new ethers.Contract(DEX_ADDRESS, DEX_ABI, sig || signer);
-      // addr é o endereço da carteira que queres consultar
       const bal = await contract.balanceOf(addr); 
       setDexBalance(ethers.utils.formatEther(bal));
     } catch(e) { console.error("Erro no saldo:", e); }
   };
 
-const fetchMyLoans = async (userAddress, sig) => {
+  const fetchMyLoans = async (userAddress, sig) => {
     const dexContract = new ethers.Contract(DEX_ADDRESS, DEX_ABI, sig || signer);
     const foundDex = [];
-
-    // O teu _nextLoanId começa em 1, logo os teus empréstimos vão de 1 até (_nextLoanId - 1)
-    // Para simplificar, vamos ler apenas os primeiros 10 IDs criados
     for (let i = 1; i <= 10; i++) { 
       try {
         const loan = await dexContract.loans(i);
-        // Só adiciona se o borrower for o user atual e o valor for > 0
         if (loan.borrower.toLowerCase() === userAddress.toLowerCase() && loan.amount.gt(0)) {
           foundDex.push({ id: i, ...loan });
         }
       } catch (e) {
-        // Se der erro, este ID não existe, ignoramos e continuamos
         continue;
       }
     }
@@ -1849,7 +242,7 @@ const fetchMyLoans = async (userAddress, sig) => {
       const tx = await contract.buyDex({ value: ethers.utils.parseEther(ethAmount) });
       await tx.wait();
       alert('Tokens DEX adquiridos!');
-      updateDexBalance();
+      updateDexBalance(account, signer);
     } catch (err) { alert(err.message); }
   };
 
@@ -1859,7 +252,7 @@ const fetchMyLoans = async (userAddress, sig) => {
       const tx = await contract.sellDex(ethers.utils.parseEther(dexAmount));
       await tx.wait();
       alert('Tokens DEX vendidos!');
-      updateDexBalance();
+      updateDexBalance(account, signer);
     } catch (err) { alert(err.message); }
   };
 
@@ -1869,8 +262,8 @@ const fetchMyLoans = async (userAddress, sig) => {
       const tx = await contract.loan(ethers.utils.parseEther(loanCollateral), loanDeadline);
       await tx.wait();
       alert('Contrato de Empréstimo Iniciado com sucesso!');
-      updateDexBalance();
-      fetchMyLoans(account, signer); // Atualiza a lista automaticamente
+      updateDexBalance(account, signer);
+      fetchMyLoans(account, signer); 
     } catch (err) { alert(err.message); }
   };
 
@@ -1880,47 +273,44 @@ const fetchMyLoans = async (userAddress, sig) => {
       const tx = await contract.makePayment(paymentLoanId, { value: ethers.utils.parseEther(paymentValue) });
       await tx.wait();
       alert('Pagamento da prestação processado!');
-      fetchMyLoans(account, signer); // Atualiza a lista automaticamente
+      fetchMyLoans(account, signer); 
     } catch (err) { alert(err.message); }
   };
 
   const handleMintNft = async () => {
-  if (!nftFile) return alert('Por favor, seleciona uma imagem primeiro!');
+    if (!nftFile) return alert('Por favor, seleciona uma imagem primeiro!');
   
-  try {
-    // 1. Prepara a imagem para enviar para o backend
-    const formData = new FormData();
-    formData.append('nftImage', nftFile); // O nome tem de bater certo com o upload.single('nftImage')
+    try {
+      const formData = new FormData();
+      formData.append('nftImage', nftFile); 
 
-    // 2. Envia para o backend
-    const uploadRes = await fetch('http://localhost:3001/api/upload', {
-      method: 'POST',
-      body: formData
-    });
+      const uploadRes = await fetch('http://localhost:3001/api/upload', {
+        method: 'POST',
+        body: formData
+      });
     
-    const uploadData = await uploadRes.json();
-    if (!uploadData.imageUrl) throw new Error("Falha no upload da imagem");
+      const uploadData = await uploadRes.json();
+      if (!uploadData.imageUrl) throw new Error("Falha no upload da imagem");
     
-    const finalUri = uploadData.imageUrl; // Link gerado: http://localhost:3001/uploads/12345.png
+      const finalUri = uploadData.imageUrl; 
 
-    // 3. Forja o NFT na Blockchain com o Link
-    const contract = new ethers.Contract(NFT_MARKET_ADDRESS, NFT_MARKET_ABI, signer);
-    const tx = await contract.mintNFT(finalUri);
-    await tx.wait();
+      const contract = new ethers.Contract(NFT_MARKET_ADDRESS, NFT_MARKET_ABI, signer);
+      const tx = await contract.mintNFT(finalUri);
+      await tx.wait();
     
-    // 4. Guarda na Base de Dados (opcional, como já tinhas)
-    await fetch('http://localhost:3001/api/nfts', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ creator: account, tokenUri: finalUri })
-    });
+      await fetch('http://localhost:3001/api/nfts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ creator: account, tokenUri: finalUri, name: nftName, description: nftDescription })
+      });
 
-    alert(`NFT forjado com sucesso!\nA tua arte está guardada em: ${finalUri}`);
-    setNftFile(null); // Limpa o formulário
-  } catch (err) { alert(err.message); }
-};
+      alert(`NFT forjado com sucesso!\nA tua arte está guardada em: ${finalUri}`);
+      setNftFile(null); 
+      fetchMarketData(account, signer);
+    } catch (err) { alert(err.message); }
+  };
 
-const fetchMarketData = async (userAddress, sig) => {
+  const fetchMarketData = async (userAddress, sig) => {
     try {
       const contract = new ethers.Contract(NFT_MARKET_ADDRESS, NFT_MARKET_ABI, sig || signer);
       const vendas = [];
@@ -1928,30 +318,23 @@ const fetchMarketData = async (userAddress, sig) => {
       const foundAllP2p = [];
       const meusNfts = []; 
 
-      // Procura nos primeiros 50 NFTs
       for (let i = 1; i <= 50; i++) {
-        
-        // 1. VERIFICAR A TUA COLEÇÃO (Isolado)
         try {
           const owner = await contract.ownerOf(i);
           if (owner.toLowerCase() === userAddress.toLowerCase()) {
             const uri = await contract.tokenURI(i);
             meusNfts.push({ tokenId: i, uri });
           }
-        } catch (e) { /* Token não existe, passa à frente */ }
+        } catch (e) {}
 
-        // 2. LER VENDAS DIRETAS (Filtra os que já foram vendidos!)
         try {
           const listing = await contract.listings(i);
-          // Adicionámos o listing.sold === false para não mostrar o que já foi comprado!
           if (listing.price && listing.price.gt(0) && listing.sold === false) {
             const uri = await contract.tokenURI(i);
             vendas.push({ tokenId: i, price: listing.price, isDexPayment: listing.isDexPayment, uri });
           }
-        } catch (e) { /* Erro a ler venda, ignora */ }
+        } catch (e) {}
 
-        // 3. LER LEILÕES
-       
         try {
           const auction = await contract.auctions(i);
           if (auction.minPrice && auction.minPrice.gt(0) && auction.active === true) {
@@ -1968,7 +351,6 @@ const fetchMarketData = async (userAddress, sig) => {
           }
         } catch (e) {}
 
-        // 4. LER P2P
         try {
           const p2p = await contract.nftLoans(i);
           if (p2p.ethRequested && p2p.ethRequested.gt(0)) {
@@ -1976,10 +358,9 @@ const fetchMarketData = async (userAddress, sig) => {
             try { uri = await contract.tokenURI(p2p.tokenId); } catch(err) {}
             foundAllP2p.push({ id: i, uri, ...p2p });
           }
-        } catch (e) { /* Erro a ler P2P, ignora */ }
-        
-      } // fim do loop
-      
+        } catch (e) {}
+      } 
+    
       setMarketListings(vendas);
       setActiveAuctions(leiloes);
       setAllP2pLoans(foundAllP2p);
@@ -1987,57 +368,11 @@ const fetchMarketData = async (userAddress, sig) => {
     } catch (err) { console.error("Erro geral a ler mercado:", err); }
   };
 
-
-  
-
-// RELÓGIO AO VIVO E HISTÓRICO DE EVENTOS PARA O LEILÃO
-  useEffect(() => {
-    if (!selectedAuction) return;
-
-    // 1. LER O HISTÓRICO DE LICITAÇÕES NA BLOCKCHAIN
-    const fetchHistory = async () => {
-      try {
-        const contract = new ethers.Contract(NFT_MARKET_ADDRESS, NFT_MARKET_ABI, signer);
-        // Filtra apenas os eventos 'BidPlaced' deste Token ID específico
-        const filter = contract.filters.BidPlaced(selectedAuction.tokenId);
-        const events = await contract.queryFilter(filter);
-        
-        // Mapeia e inverte a ordem para o mais recente ficar no topo
-        const history = events.map(e => ({
-          bidder: e.args.bidder,
-          amount: e.args.amount
-        })).reverse(); 
-        
-        setBidHistory(history);
-      } catch (err) { console.error("Erro ao ler histórico:", err); }
-    };
-    fetchHistory();
-
-    // 2. O RELÓGIO (CONTADOR)
-    const interval = setInterval(() => {
-      const now = Math.floor(Date.now() / 1000);
-      const end = selectedAuction.endTime.toNumber(); // Lê o endTime do estado atual
-      
-      if (now >= end) {
-        setTimeLeft("🔴 Leilão Terminado");
-        clearInterval(interval);
-      } else {
-        const diff = end - now;
-        const h = Math.floor(diff / 3600);
-        const m = Math.floor((diff % 3600) / 60);
-        const s = diff % 60;
-        setTimeLeft(`⏳ ${h}h ${m}m ${s}s`);
-      }
-    }, 1000);
-
-    return () => clearInterval(interval);
-  }, [selectedAuction, signer]);
-
   const handleBuyNft = async () => {
     try {
       const contract = new ethers.Contract(NFT_MARKET_ADDRESS, NFT_MARKET_ABI, signer);
       const listing = await contract.listings(buyTokenId);
-      
+    
       if (listing.isDexPayment) {
         const dexContract = new ethers.Contract(DEX_ADDRESS, DEX_ABI, signer);
         await (await dexContract.approve(NFT_MARKET_ADDRESS, listing.price)).wait();
@@ -2046,7 +381,8 @@ const fetchMarketData = async (userAddress, sig) => {
         await (await contract.buyNFT(buyTokenId, { value: listing.price })).wait();
       }
       alert('NFT adquirido no mercado!');
-      updateDexBalance();
+      updateDexBalance(account, signer);
+      fetchMarketData(account, signer);
     } catch (err) { alert(err.message); }
   };
 
@@ -2055,6 +391,7 @@ const fetchMarketData = async (userAddress, sig) => {
       const contract = new ethers.Contract(NFT_MARKET_ADDRESS, NFT_MARKET_ABI, signer);
       await (await contract.burnNFT(burnTokenId)).wait();
       alert('NFT permanentemente destruído (burned).');
+      fetchMarketData(account, signer);
     } catch (err) { alert(err.message); }
   };
 
@@ -2063,43 +400,40 @@ const fetchMarketData = async (userAddress, sig) => {
       const contract = new ethers.Contract(NFT_MARKET_ADDRESS, NFT_MARKET_ABI, signer);
       await (await contract.endAuction(endAuctionTokenId)).wait();
       alert('Leilão finalizado e ativos distribuídos!');
+      fetchMarketData(account, signer);
     } catch (err) { alert(err.message); }
   };
 
   const inputStyle = { display: 'block', marginBottom: '0.75rem', padding: '0.6rem', background: '#0a0a14', border: '1px solid #444', borderRadius: '6px', color: '#fff', width: '100%', boxSizing: 'border-box' };
-  
   const cardStyle = { padding: '1.25rem', border: '1px solid #2a2a3a', borderRadius: '10px', background: '#141423', width: '100%', boxSizing: 'border-box' };
-  
   const btnStyle = { padding: '0.6rem 1.2rem', background: '#4f46e5', color: '#fff', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', boxSizing: 'border-box' };
+  
   const calculateInstallment = (loan) => {
-    // Cálculo: (Amount * Interest) / (100 * Deadline)
     return loan.amount.mul(loan.interest).div(100 * loan.deadline);
   };
 
   const calculateFinalPayment = (loan) => {
-    // Última prestação = Valor da prestação + Capital (Amount)
     return calculateInstallment(loan).add(loan.amount);
   };
 
   const handleTerminateLoan = async () => {
-  try {
-    const contract = new ethers.Contract(DEX_ADDRESS, DEX_ABI, signer);
-    const loan = await contract.loans(paymentLoanId); // Lê os dados
+    try {
+      const contract = new ethers.Contract(DEX_ADDRESS, DEX_ABI, signer);
+      const loan = await contract.loans(paymentLoanId); 
+      const totalToPay = loan.amount.add(loan.termination); 
     
-    // Calcula: Amount + Termination Fee
-    const totalToPay = loan.amount.add(loan.termination); 
+      const tx = await contract.terminateLoan(paymentLoanId, { value: totalToPay });
+      await tx.wait();
     
-    // Executa o término
-    const tx = await contract.terminateLoan(paymentLoanId, { value: totalToPay });
-    await tx.wait();
-    
-    alert('Empréstimo encerrado antecipadamente com sucesso!');
-    fetchMyLoans(account, signer);
-  } catch (err) { alert(err.message); }
-};
+      alert('Empréstimo encerrado antecipadamente com sucesso!');
+      fetchMyLoans(account, signer);
+    } catch (err) { alert(err.message); }
+  };
 
-
-return (
+  // ==============================================================
+  // 6. RENDERIZAÇÃO DA INTERFACE VISUAL
+  // ==============================================================
+  return (
     <div style={{ background: '#0b0a12', color: '#eee', minHeight: '100vh', width: '100vw', margin: 0, padding: '2rem 1rem', boxSizing: 'border-box' }}>
       
       <style jsx global>{`
@@ -2189,8 +523,8 @@ return (
                 <input style={inputStyle} placeholder="Duração em Ciclos (Ex: 3)" onChange={e => setLoanDeadline(e.target.value)} />
                 <button style={{ ...btnStyle, background: '#10b981' }} onClick={handleTakeLoan}>Process Loan</button>
                 <button style={{ ...btnStyle, background: '#ef4444', marginLeft: '10px' }} onClick={handleTerminateLoan}>
-  Encerrar Totalmente
-</button>
+                  Encerrar Totalmente
+                </button>
               </div>
 
               <div style={cardStyle}>
@@ -2207,18 +541,15 @@ return (
         {activeTab === 'nft-market' && (
           <section>
             
-            {/* BOTÃO GLOBAL DE ATUALIZAÇÃO */}
             <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '1rem' }}>
               <button style={{ ...btnStyle, background: '#374151', display: 'flex', alignItems: 'center', gap: '8px' }} onClick={() => fetchMarketData(account, signer)}>
                 🔄 Atualizar Mercado
               </button>
             </div>
 
-            {/* ====== SE UM LEILÃO ESTIVER SELECIONADO (SALA DE LEILÃO) ====== */}
             {selectedAuction ? (
               <div style={{ background: '#1e1b4b', padding: '2rem', borderRadius: '12px', border: '1px solid #c026d3', display: 'flex', gap: '2rem', alignItems: 'flex-start' }}>
                 
-                {/* Lado Esquerdo: Imagem Gigante */}
                 <div style={{ flex: '1' }}>
                   <button 
                     style={{ ...btnStyle, background: '#4b5563', marginBottom: '1rem' }} 
@@ -2229,10 +560,8 @@ return (
                   <img src={selectedAuction.uri} alt="NFT Leilão" style={{ width: '100%', borderRadius: '10px', border: '2px solid #a855f7' }} />
                 </div>
 
-                {/* Lado Direito: Detalhes, Relógio e Licitação */}
                 <div style={{ flex: '1', display: 'flex', flexDirection: 'column', gap: '1rem', marginTop: '3rem' }}>
                   
-                  {/* NOVO: CARREGAR METADADOS DO LEILÃO (NOME E DESCRIÇÃO DO BACKEND) */}
                   {(() => {
                     const meta = backendNfts.find(n => n.tokenUri === selectedAuction.uri) || {};
                     return (
@@ -2274,7 +603,6 @@ return (
                     </div>
                   </div>
 
-                  {/* NOVO: HISTÓRICO DE LICITAÇÕES */}
                   <div style={{ marginTop: '0.5rem', background: '#0a0a14', padding: '1rem', borderRadius: '8px', border: '1px solid #333' }}>
                     <h4 style={{ color: '#a855f7', margin: '0 0 10px 0', fontSize: '1rem' }}>📜 Histórico de Lances</h4>
                     {bidHistory.length > 0 ? (
@@ -2293,7 +621,6 @@ return (
                     )}
                   </div>
 
-                  {/* CAIXA DE LICITAÇÃO OU BOTÃO DE FINALIZAR */}
                   <div style={{ marginTop: '1rem' }}>
                     {timeLeft.includes('Terminado') ? (
                       <button 
@@ -2333,9 +660,7 @@ return (
 
               </div>
             ) : (
-              /* ====== SE NÃO HOUVER LEILÃO SELECIONADO (MOSTRA AS GALERIAS NORMAIS) ====== */
               <>
-                {/* 1. A MINHA COLEÇÃO PESSOAL (COLAPSÁVEL + CLICÁVEL) */}
                 <div style={{ marginBottom: '2.5rem', width: '100%' }}>
                   <div 
                     onClick={() => setIsGalleryOpen(!isGalleryOpen)} 
@@ -2352,7 +677,6 @@ return (
                   
                   {isGalleryOpen && (
                     selectedMyNft ? (
-                      /* NOVO: VISTA DETALHADA DO NFT PESSOAL */
                       <div style={{ background: '#131129', padding: '2rem', borderRadius: '12px', border: '1px solid #3b2d6b', display: 'flex', gap: '2rem', alignItems: 'flex-start' }}>
                         <div style={{ flex: '1' }}>
                           <button style={{ ...btnStyle, background: '#3b2d6b', marginBottom: '1rem' }} onClick={() => setSelectedMyNft(null)}>⬅ Voltar à Galeria</button>
@@ -2377,7 +701,6 @@ return (
                         </div>
                       </div>
                     ) : (
-                      /* GALERIA REGULAR */
                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem', background: '#131129', padding: '1rem', borderRadius: '10px', border: '1px solid #3b2d6b' }}>
                         {myNfts.length > 0 ? myNfts.map(nft => (
                           <div 
@@ -2399,7 +722,6 @@ return (
                   )}
                 </div>
 
-                {/* 2. MONTRA DE VENDAS DIRETAS (COLAPSÁVEL + CLICÁVEL) */}
                 <div style={{ marginBottom: '2.5rem', width: '100%' }}>
                   <div 
                     onClick={() => setIsSalesOpen(!isSalesOpen)} 
@@ -2412,7 +734,6 @@ return (
 
                   {isSalesOpen && (
                     selectedSale ? (
-                      /* NOVO: VISTA DETALHADA DA VENDA DIRETA */
                       <div style={{ background: '#1e1b4b', padding: '2rem', borderRadius: '12px', border: '1px solid #4338ca', display: 'flex', gap: '2rem', alignItems: 'flex-start' }}>
                         <div style={{ flex: '1' }}>
                           <button style={{ ...btnStyle, background: '#312e81', marginBottom: '1rem' }} onClick={() => setSelectedSale(null)}>⬅ Voltar à Montra</button>
@@ -2454,7 +775,6 @@ return (
                         </div>
                       </div>
                     ) : (
-                      /* LISTAGEM REGULAR DE VENDAS */
                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem' }}>
                         {marketListings.length > 0 ? marketListings.map(item => (
                           <div 
@@ -2477,7 +797,6 @@ return (
                   )}
                 </div>
 
-                {/* 3. MONTRA DE LEILÕES (CLICÁVEL & COLAPSÁVEL) */}
                 <div style={{ marginBottom: '2.5rem', width: '100%' }}>
                   <div onClick={() => setIsAuctionsOpen(!isAuctionsOpen)} style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '8px', marginBottom: '1rem' }}>
                     <h3 style={{ color: '#d946ef', margin: 0, userSelect: 'none' }}>{isAuctionsOpen ? '▼' : '▶'} 🔨 Leilões a Decorrer</h3>
@@ -2505,7 +824,6 @@ return (
               </>
             )}
 
-            {/* FERRAMENTAS DE CRIADOR & VENDEDOR */}
             <h3 style={{ color: '#a855f7', borderTop: '1px solid #333', paddingTop: '2rem' }}>⚙️ Ferramentas de Criador & Vendedor</h3>
             
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1.5rem', marginBottom: '2rem', width: '100%' }}>
@@ -2578,15 +896,12 @@ return (
         {activeTab === 'p2p-pawn' && (
           <section>
             
-            {/* BOTÃO GLOBAL DE ATUALIZAÇÃO */}
             <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '1rem' }}>
               <button style={{ ...btnStyle, background: '#064e3b', display: 'flex', alignItems: 'center', gap: '8px' }} onClick={() => fetchMarketData(account, signer)}>
                 🔄 Atualizar P2P
               </button>
             </div>
 
-            {/* 1. MERCADO P2P (COLAPSÁVEL) */}
-            {/* 1. MERCADO P2P (COLAPSÁVEL) */}
             <div style={{ marginBottom: '2.5rem', width: '100%' }}>
               <div onClick={() => setIsP2pMarketOpen(!isP2pMarketOpen)} style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '8px', marginBottom: '1rem' }}>
                 <h3 style={{ color: '#34d399', margin: 0, userSelect: 'none' }}>{isP2pMarketOpen ? '▼' : '▶'} 🏦 Mercado P2P (Apoiar Projetos)</h3>
@@ -2596,10 +911,8 @@ return (
               {isP2pMarketOpen && (
                 selectedP2pLoan ? (
                   
-                  /* ================= SALA DE FINANCIAMENTO (VISTA DETALHADA) ================= */
                   <div style={{ background: '#022c22', padding: '2rem', borderRadius: '12px', border: '1px solid #059669', display: 'flex', gap: '2rem', alignItems: 'flex-start' }}>
                     
-                    {/* Lado Esquerdo: Imagem do Colateral */}
                     <div style={{ flex: '1' }}>
                       <button style={{ ...btnStyle, background: '#064e3b', marginBottom: '1rem' }} onClick={() => setSelectedP2pLoan(null)}>
                         ⬅ Voltar ao Mercado
@@ -2607,20 +920,16 @@ return (
                       <img src={selectedP2pLoan.uri} alt="NFT Colateral" style={{ width: '100%', borderRadius: '10px', border: '2px solid #10b981' }} />
                     </div>
 
-                   {/* Lado Direito: Informações do Projeto e Investimento */}
                     <div style={{ flex: '1', display: 'flex', flexDirection: 'column', gap: '1rem', marginTop: '3rem' }}>
                       
-                      {/* PROCURA OS DADOS NO BACKEND USANDO O URI DA IMAGEM DO COLATERAL */}
                       {(() => {
                         const meta = backendNfts.find(n => n.tokenUri === selectedP2pLoan.uri) || {};
                         return (
                           <>
-                            {/* NOME DO PROJETO */}
                             <h2 style={{ margin: 0, color: '#fff', fontSize: '2rem' }}>
                               {meta.name || `Projeto #${selectedP2pLoan.id.toString()}`}
                             </h2>
                             
-                            {/* CAIXA DE DESCRIÇÃO DO PROJETO */}
                             <div style={{ background: '#1e293b', padding: '1rem', borderRadius: '8px', borderLeft: '4px solid #3b82f6' }}>
                               <p style={{ margin: '0 0 5px 0', color: '#94a3b8', fontWeight: 'bold', fontSize: '0.9rem' }}>
                                 📝 Descrição do Projeto:
@@ -2633,7 +942,6 @@ return (
                         );
                       })()}
 
-                      {/* CARTEIRA DO MUTUÁRIO */}
                       <div style={{ background: '#064e3b', padding: '1rem', borderRadius: '8px' }}>
                         <p style={{ margin: '0 0 5px 0', color: '#a7f3d0', fontSize: '0.85rem' }}>👤 Mutuário (Criador):</p>
                         <p style={{ margin: 0, color: '#fff', fontFamily: 'monospace', fontSize: '1.05rem', overflowWrap: 'anywhere' }}>
@@ -2641,7 +949,6 @@ return (
                         </p>
                       </div>
 
-                      {/* CONTEXTO FINANCEIRO DO EMPRÉSTIMO */}
                       <div style={{ background: '#0f172a', padding: '1rem', borderRadius: '8px', border: '1px solid #1e293b' }}>
                         <p style={{ margin: '0 0 10px 0', color: '#94a3b8', fontSize: '0.85rem' }}>Detalhes do Pedido:</p>
                         
@@ -2659,7 +966,6 @@ return (
                           </b>
                         </div>
                         
-                        {/* CÁLCULO DE RECOMPENSA FINANCEIRA (+5% PARA O INVESTIDOR) */}
                         <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid #334155', paddingTop: '10px', marginTop: '10px' }}>
                           <span style={{ color: '#cbd5e1', fontWeight: 'bold' }}>Teu Lucro Estimado (+5%):</span>
                           <b style={{ color: '#10b981', fontSize: '1.2rem' }}>
@@ -2668,7 +974,6 @@ return (
                         </div>
                       </div>
 
-                      {/* BOTÃO PARA PROCESSAR O FINANCIAMENTO NA BLOCKCHAIN */}
                       <div style={{ marginTop: '1rem' }}>
                         <button 
                           style={{ ...btnStyle, background: '#10b981', width: '100%', fontSize: '1.2rem', padding: '1rem' }} 
@@ -2677,15 +982,12 @@ return (
                               const contract = new ethers.Contract(NFT_MARKET_ADDRESS, NFT_MARKET_ABI, signer);
                               const dexContract = new ethers.Contract(DEX_ADDRESS, DEX_ABI, signer);
                               
-                              // 1. Aprovação do colateral DEX (Garantia do Provedor de Liquidez)
                               await (await dexContract.approve(NFT_MARKET_ADDRESS, selectedP2pLoan.dexRequired)).wait();
-                              
-                              // 2. Transferência dos Fundos ETH para o contrato transferir ao Mutuário
                               await (await contract.fundNftLoan(selectedP2pLoan.id, { value: selectedP2pLoan.ethRequested })).wait();
                               
                               alert('🎉 Crédito concedido com sucesso! O projeto foi financiado.');
-                              setSelectedP2pLoan(null); // Fecha a sala e retorna à listagem principal
-                              fetchMarketData(account, signer); // Atualiza os estados no ecrã
+                              setSelectedP2pLoan(null); 
+                              fetchMarketData(account, signer); 
                             } catch(e) { alert(e.message); }
                           }}
                         >
@@ -2697,7 +999,6 @@ return (
 
                 ) : (
 
-                  /* ================= GALERIA NORMAL DE CARTÕES ================= */
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1.5rem' }}>
                     {allP2pLoans.filter(l => l.active && !l.funded && l.borrower.toLowerCase() !== account.toLowerCase()).map(loan => (
                       <div 
@@ -2720,7 +1021,6 @@ return (
               )}
             </div>
 
-            {/* 2. OS MEUS INVESTIMENTOS (COLAPSÁVEL) */}
             <div style={{ marginBottom: '2.5rem', width: '100%' }}>
               <div onClick={() => setIsP2pInvestmentsOpen(!isP2pInvestmentsOpen)} style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '8px', marginBottom: '1rem' }}>
                 <h3 style={{ color: '#8b5cf6', margin: 0, userSelect: 'none' }}>{isP2pInvestmentsOpen ? '▼' : '▶'} 💼 Os Meus Investimentos</h3>
@@ -2736,13 +1036,10 @@ return (
                       
                       {loan.active ? (
                         <button style={{ ...btnStyle, background: '#ef4444', width: '100%', marginTop: '10px' }} onClick={async () => {
-                          
-                          // VERIFICAÇÃO INTELIGENTE DE TEMPO NO FRONTEND
                           const now = Math.floor(Date.now() / 1000);
                           if (now <= loan.expiry.toNumber()) {
                             return alert("⚠️ Ação Bloqueada: O prazo do empréstimo ainda não expirou! Só podes forçar a liquidação depois do tempo acabar.");
                           }
-
                           try {
                             const c = new ethers.Contract(NFT_MARKET_ADDRESS, NFT_MARKET_ABI, signer);
                             await (await c.liquidateNftLoan(loan.id)).wait();
@@ -2760,7 +1057,6 @@ return (
               )}
             </div>
 
-            {/* 3. OS MEUS PEDIDOS ATIVOS (COLAPSÁVEL) */}
             <div style={{ marginBottom: '2.5rem', width: '100%' }}>
               <div onClick={() => setIsP2pMyLoansOpen(!isP2pMyLoansOpen)} style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '8px', marginBottom: '1rem' }}>
                 <h3 style={{ color: '#3b82f6', margin: 0, userSelect: 'none' }}>{isP2pMyLoansOpen ? '▼' : '▶'} 📥 Os Meus Pedidos (Estado & Pagamento)</h3>
@@ -2769,8 +1065,6 @@ return (
               {isP2pMyLoansOpen && (
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1.5rem' }}>
                   {allP2pLoans.filter(l => l.borrower.toLowerCase() === account.toLowerCase()).map(loan => {
-                    
-                    // CÁLCULO PRECISO AQUI EM CIMA: Capital + 10% Juros
                     const totalDueBN = loan.ethRequested.mul(110).div(100);
                     const totalDueEth = ethers.utils.formatEther(totalDueBN);
 
@@ -2783,7 +1077,6 @@ return (
                           Estado: {loan.active ? (loan.funded ? "🟢 Financiado" : "🟠 A aguardar") : "🔴 Encerrado"}
                         </p>
                         
-                        {/* SE ESTIVER FINANCIADO: MOSTRA A ÁREA DE PAGAMENTO COM O VALOR */}
                         {loan.active && loan.funded && (
                           <div style={{ background: '#0f172a', padding: '10px', borderRadius: '6px', marginTop: '10px', border: '1px solid #1e293b' }}>
                             <p style={{ color: '#94a3b8', fontSize: '0.8rem', margin: '0 0 5px 0' }}>Total a Liquidar (C/ Juros):</p>
@@ -2792,7 +1085,6 @@ return (
                             <button style={{ ...btnStyle, background: '#2563eb', width: '100%' }} onClick={async () => {
                                try {
                                  const c = new ethers.Contract(NFT_MARKET_ADDRESS, NFT_MARKET_ABI, signer);
-                                 // Envia a transação com o valor já calculado
                                  await (await c.repayNftLoan(loan.id, { value: totalDueBN })).wait();
                                  alert('✅ Dívida saldada com sucesso! O teu NFT voltou para a tua carteira.');
                                  fetchMarketData(account, signer);
@@ -2801,7 +1093,6 @@ return (
                           </div>
                         )}
 
-                        {/* SE AINDA ESTIVER A AGUARDAR: MOSTRA APENAS O VALOR PEDIDO */}
                         {loan.active && !loan.funded && (
                            <p style={{ color: '#bfdbfe', fontSize: '0.85rem' }}>Pedido: {ethers.utils.formatEther(loan.ethRequested)} ETH</p>
                         )}
@@ -2813,11 +1104,9 @@ return (
               )}
             </div>
 
-            {/* 4. FERRAMENTAS DE FINANCIAMENTO (NOVO FORMATO "CARD") */}
             <h3 style={{ color: '#3b82f6', borderTop: '1px solid #333', paddingTop: '2rem' }}>⚙️ Ferramentas de Mutuário</h3>
             
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 350px))', gap: '1.5rem', marginBottom: '2rem', width: '100%' }}>
-              
               <div style={{ ...cardStyle, borderColor: '#3b82f6' }}>
                 <h4 style={{ color: '#93c5fd', marginTop: 0 }}>Lançar Pedido de Financiamento</h4>
                 <p style={{ fontSize: '0.8rem', color: '#aaa', marginBottom: '1rem' }}>Usa um ID da tua Galeria como colateral.</p>
@@ -2839,7 +1128,6 @@ return (
                   } catch(e) { alert(e.message); }
                 }}>Solicitar Financiamento</button>
               </div>
-
             </div>
 
           </section>
@@ -2848,5 +1136,4 @@ return (
       </div>
     </div>
   );
-
 }

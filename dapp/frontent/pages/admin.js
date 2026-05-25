@@ -8,7 +8,7 @@ const DEX_ABI = [
   "function owner() external view returns (address)"
 ];
 // Garante que usas o endereço correto do teu script de deploy local
-const DEX_ADDRESS = "d9145CCE52D386f254917e481eB44e9943F39138";
+const DEX_ADDRESS = "0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9";
 
 export default function AdminConsole() {
   const [rate, setRate] = useState('');

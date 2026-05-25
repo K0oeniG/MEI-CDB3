@@ -134,14 +134,32 @@ app.post('/api/nfts', (req, res) => {
         id: db.nfts.length + 1,
         creator,
         tokenUri,
-        name: name || "Projeto Sem Nome",                 // NOVO
-        description: description || "Sem descrição.",     // NOVO
+        name: name || "Projeto Sem Nome",                 
+        description: description || "Sem descrição.",   
         timestamp: new Date().toISOString()
     };
     
     db.nfts.push(newNft);
     writeDB(db);
     res.status(201).json(newNft);
+});
+
+
+
+// ==========================================
+// 3. ROTA WEB2.5: SERVIR CONFIGURAÇÕES DA BLOCKCHAIN
+// ==========================================
+const CONFIG_FILE = path.join(__dirname, 'contractConfig.json');
+
+app.get('/api/blockchain/config', (req, res) => {
+  if (!fs.existsSync(CONFIG_FILE)) {
+    return res.status(404).json({ 
+      error: "Configurações da rede não encontradas. Executa o deploy do Hardhat primeiro!" 
+    });
+  }
+  
+  const configData = JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf8'));
+  res.json(configData);
 });
 
 // ==========================================
