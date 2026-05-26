@@ -533,6 +533,13 @@ const handleMakePayment = async () => {
 
 
 const handleListNftForSale = async () => {
+    if (!listTokenId || !listPrice) return alert('Aviso: Preencha o Token ID e o Preço da venda.');
+
+    const isAvailable = myNfts.find(nft => nft.tokenId.toString() === listTokenId.toString());
+    if (!isAvailable) {
+      return alert("Erro: Ação Bloqueada. Este NFT já se encontra listado para Venda, Leilão ou Empréstimo P2P ativo!");
+    }
+
     try {
       const contract = new ethers.Contract(NFT_MARKET_ADDRESS, NFT_MARKET_ABI, signer);
       
@@ -544,22 +551,27 @@ const handleListNftForSale = async () => {
       const receipt = await tx.wait();
       
       console.log("Transação confirmada:", receipt);
-      alert('✅ Listado com sucesso!');
+      alert('Listado com sucesso!');
       fetchMarketData(account, signer);
     } catch (err) {
       console.error("Erro detalhado:", err); 
       alert("Erro: " + err.message);
     }
   };
-  // --- FUNÇÃO PARA INICIAR LEILÃO ---
+
   const handleStartAuction = async () => {
-    if (!auctionTokenId || !auctionMinPrice || !auctionDuration) return alert('⚠️ Preencha todos os campos do leilão.');
+    if (!auctionTokenId || !auctionMinPrice || !auctionDuration) return alert('Aviso: Preencha todos os campos do leilão.');
+
+    const isAvailable = myNfts.find(nft => nft.tokenId.toString() === auctionTokenId.toString());
+    if (!isAvailable) {
+      return alert("Erro: Ação Bloqueada. Este NFT já se encontra listado para Venda, Leilão ou Empréstimo P2P ativo!");
+    }
 
     try {
       const contract = new ethers.Contract(NFT_MARKET_ADDRESS, NFT_MARKET_ABI, signer);
       
       const owner = await contract.ownerOf(auctionTokenId);
-      if (owner.toLowerCase() !== account.toLowerCase()) return alert("❌ Não é o dono deste NFT.");
+      if (owner.toLowerCase() !== account.toLowerCase()) return alert("Erro: Não é o dono deste NFT.");
 
       await (await contract.approve(NFT_MARKET_ADDRESS, auctionTokenId)).wait();
       await (await contract.startAuction(auctionTokenId, ethers.utils.parseEther(auctionMinPrice), auctionDuration)).wait();
@@ -567,33 +579,56 @@ const handleListNftForSale = async () => {
       alert('Leilão iniciado!');
       fetchMarketData(account, signer);
     } catch (err) {
-      alert(" Erro ao iniciar leilão: " + (err.reason || err.message));
+      alert("Erro ao iniciar leilão: " + (err.reason || err.message));
     }
   };
 
- 
   const handleRequestP2pLoan = async () => {
     const tId = document.getElementById('newLoanId')?.value;
     const eth = document.getElementById('newLoanEth')?.value;
     const time = document.getElementById('newLoanTime')?.value;
 
-    if (!tId || !eth || !time) return alert(' Preencha todos os campos de financiamento (ID, ETH e Prazo).');
+    if (!tId || !eth || !time) return alert('Aviso: Preencha todos os campos de financiamento (ID, ETH e Prazo).');
+
+    const isAvailable = myNfts.find(nft => nft.tokenId.toString() === tId.toString());
+    if (!isAvailable) {
+      return alert("Erro: Ação Bloqueada. Este NFT já se encontra listado para Venda, Leilão ou Empréstimo P2P ativo!");
+    }
 
     try {
       const contract = new ethers.Contract(NFT_MARKET_ADDRESS, NFT_MARKET_ABI, signer);
       
       const owner = await contract.ownerOf(tId);
-      if (owner.toLowerCase() !== account.toLowerCase()) return alert("❌ NFT não lhe pertence.");
+      if (owner.toLowerCase() !== account.toLowerCase()) return alert("Erro: NFT não lhe pertence.");
 
       await (await contract.approve(NFT_MARKET_ADDRESS, tId)).wait();
       await (await contract.requestNftLoan(tId, ethers.utils.parseEther(eth), time)).wait();
       
-      alert(' Pedido de financiamento P2P submetido!');
+      alert('Pedido de financiamento P2P submetido!');
       fetchMarketData(account, signer);
     } catch (err) { 
       alert("Erro no pedido P2P: " + (err.reason || err.message)); 
     }
   };
+
+
+  const handleCancelListing = async () => {
+    if (!selectedSale) return;
+
+    try {
+      const contract = new ethers.Contract(NFT_MARKET_ADDRESS, NFT_MARKET_ABI, signer);
+      const tx = await contract.cancelListing(selectedSale.tokenId);
+      await tx.wait();
+      
+      alert('Listagem cancelada com sucesso. O NFT voltou para a sua galeria.');
+      setSelectedSale(null);
+      fetchMarketData(account, signer);
+    } catch (err) {
+      alert("Erro ao cancelar listagem: " + (err.reason || err.message));
+    }
+  };
+
+ 
 
 
   const WalletMenu = ({ account, sessionUser, connectWallet, logout }) => {
@@ -969,19 +1004,35 @@ const logout = () => {
                               Preço: {ethers.utils.formatEther(selectedSale.price)} {selectedSale.isDexPayment ? 'DEX' : 'ETH'}
                             </p>
                           </div>
-                          <button style={{ ...btnStyle, background: '#2563eb', width: '100%', fontSize: '1.2rem', padding: '1rem' }} onClick={async () => {
-                            try {
-                              const c = new ethers.Contract(NFT_MARKET_ADDRESS, NFT_MARKET_ABI, signer);
-                              if(selectedSale.isDexPayment){
-                                 const dex = new ethers.Contract(DEX_ADDRESS, DEX_ABI, signer);
-                                 await (await dex.approve(NFT_MARKET_ADDRESS, selectedSale.price)).wait();
-                              }
-                              await (await c.buyNFT(selectedSale.tokenId, { value: selectedSale.isDexPayment ? 0 : selectedSale.price })).wait();
-                              alert('Comprado com sucesso!');
-                              setSelectedSale(null);
-                              fetchMarketData(account, signer);
-                            } catch(e) { alert(e.message); }
-                          }}>Adquirir Asset</button>
+
+
+                          {selectedSale.seller.toLowerCase() === account.toLowerCase() ? (
+    <button 
+      style={{ ...btnStyle, background: '#ef4444', width: '100%', fontSize: '1.2rem', padding: '1rem' }} 
+      onClick={handleCancelListing}
+    >
+      Cancelar Venda
+    </button>
+  ) : (
+    <button 
+      style={{ ...btnStyle, background: '#2563eb', width: '100%', fontSize: '1.2rem', padding: '1rem' }} 
+      onClick={async () => {
+        try {
+          const c = new ethers.Contract(NFT_MARKET_ADDRESS, NFT_MARKET_ABI, signer);
+          if(selectedSale.isDexPayment){
+             const dex = new ethers.Contract(DEX_ADDRESS, DEX_ABI, signer);
+             await (await dex.approve(NFT_MARKET_ADDRESS, selectedSale.price)).wait();
+          }
+          await (await c.buyNFT(selectedSale.tokenId, { value: selectedSale.isDexPayment ? 0 : selectedSale.price })).wait();
+          alert('Comprado com sucesso!');
+          setSelectedSale(null);
+          fetchMarketData(account, signer);
+        } catch(e) { alert(e.message); }
+      }}
+    >
+      Adquirir  NFT
+    </button>
+  )}
                         </div>
                       </div>
                     ) : (
@@ -1038,7 +1089,7 @@ const logout = () => {
             
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1.5rem', marginBottom: '2rem', width: '100%' }}>
               <div style={cardStyle}>
-                <h4>Forge Digital Collectible (Mint)</h4>
+                <h4>Criar NFTS</h4>
                 <input style={inputStyle} placeholder="Nome do Projeto / NFT" onChange={e => setNftName(e.target.value)} />
                 <textarea 
                   style={{ ...inputStyle, minHeight: '60px', resize: 'vertical' }} 
@@ -1075,7 +1126,8 @@ const resDb = await axios.get('http://localhost:3001/api/nfts');
               </div>
               
               <div style={cardStyle}>
-                <h4>List Asset For Fixed Sale</h4>
+                <h4>Listar NFTS para venda
+                </h4>
                 <input style={inputStyle} placeholder="Token ID" onChange={e => setListTokenId(e.target.value)} />
                 <input style={inputStyle} placeholder="Preço (ETH ou DEX)" onChange={e => setListPrice(e.target.value)} />
                 <label style={{ display: 'block', marginBottom: '1rem', fontSize: '0.9rem', color: '#fff' }}>
@@ -1266,7 +1318,7 @@ const resDb = await axios.get('http://localhost:3001/api/nfts');
 
             <div style={{ marginBottom: '2.5rem', width: '100%' }}>
               <div onClick={() => setIsP2pMyLoansOpen(!isP2pMyLoansOpen)} style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '8px', marginBottom: '1rem' }}>
-                <h3 style={{ color: '#3b82f6', margin: 0, userSelect: 'none' }}>{isP2pMyLoansOpen ? '▼' : '▶'} 📥 Os Meus Pedidos (Estado & Pagamento)</h3>
+                <h3 style={{ color: '#3b82f6', margin: 0, userSelect: 'none' }}>{isP2pMyLoansOpen ? '▼' : '▶'} 📥 Os Meus Pedidos </h3>
               </div>
               
               {isP2pMyLoansOpen && (

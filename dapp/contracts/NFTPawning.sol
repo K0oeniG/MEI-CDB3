@@ -55,7 +55,7 @@ contract NFTPawningMarketplace is ERC721URIStorage {
     }
 
     // ==========================================
-    // 3) NFT BASE INTERFACE (MINT / BURN)
+    // NFT BASE INTERFACE (MINT / BURN)
     // ==========================================
     function mintNFT(string memory tokenURI) external returns (uint256) {
         _tokenIds++;
@@ -72,7 +72,7 @@ contract NFTPawningMarketplace is ERC721URIStorage {
     }
 
     // ==========================================
-    // 3) NFT MARKETPLACE (FIXED SALES)
+    //  NFT MARKETPLACE (FIXED SALES)
     // ==========================================
     function listNFT(uint256 tokenId, uint256 price, bool isDexPayment) external {
         require(ownerOf(tokenId) == msg.sender, "Nao e o dono.");
@@ -101,8 +101,24 @@ contract NFTPawningMarketplace is ERC721URIStorage {
         emit NFTSold(tokenId, msg.sender, seller, listing.price);
     }
 
+
+
+    function cancelListing(uint256 tokenId) external {
+        Listing storage listing = listings[tokenId];
+        require(listing.active, "A listagem nao esta ativa.");
+        require(listing.seller == msg.sender, "Apenas o vendedor pode cancelar.");
+
+        // Desativa a listagem
+        listing.active = false;
+        
+        // Se quiseres, podes criar um evento no topo do contrato e emiti-lo aqui:
+        // emit ListingCancelled(tokenId);
+    }
+
+
+
     // ==========================================
-    // 4) NFT AUCTIONS (TIMED OPEN-BIDDING)
+    //  NFT AUCTIONS (TIMED OPEN-BIDDING)
     // ==========================================
     function startAuction(uint256 tokenId, uint256 minPrice, uint256 durationSecs) external {
         require(ownerOf(tokenId) == msg.sender, "Nao e o dono.");

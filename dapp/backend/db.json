@@ -1,175 +1,20 @@
 {
-  "nfts": [
-    {
-      "id": 1,
-      "creator": "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
-      "tokenUri": "ipfs://imagem-teste-1",
-      "timestamp": "2026-05-21T16:46:42.193Z"
-    },
-    {
-      "id": 2,
-      "creator": "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
-      "tokenUri": "efwefw",
-      "timestamp": "2026-05-21T17:00:15.047Z"
-    },
-    {
-      "id": 3,
-      "creator": "0xbDA5747bFD65F08deb54cb465eB87D40e51B197E",
-      "tokenUri": "cahoaoh",
-      "timestamp": "2026-05-21T17:04:48.662Z"
-    },
-    {
-      "id": 4,
-      "creator": "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
-      "tokenUri": "vssovnsobeso",
-      "timestamp": "2026-05-21T19:50:23.693Z"
-    },
-    {
-      "id": 5,
-      "creator": "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
-      "tokenUri": "fdvfdvdvf",
-      "timestamp": "2026-05-21T20:01:47.599Z"
-    },
-    {
-      "id": 6,
-      "creator": "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
-      "tokenUri": "http://localhost:3001/uploads/1779397904572.png",
-      "timestamp": "2026-05-21T21:11:47.496Z"
-    },
-    {
-      "id": 7,
-      "creator": "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
-      "tokenUri": "http://localhost:3001/uploads/1779398627014.png",
-      "timestamp": "2026-05-21T21:23:49.949Z"
-    },
-    {
-      "id": 8,
-      "creator": "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
-      "tokenUri": "http://localhost:3001/uploads/1779399644476.png",
-      "timestamp": "2026-05-21T21:40:46.593Z"
-    },
-    {
-      "id": 9,
-      "creator": "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
-      "tokenUri": "http://localhost:3001/uploads/1779442045096.png",
-      "timestamp": "2026-05-22T09:27:27.401Z"
-    },
-    {
-      "id": 10,
-      "creator": "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
-      "tokenUri": "http://localhost:3001/uploads/1779444260530.png",
-      "timestamp": "2026-05-22T10:04:24.465Z"
-    },
-    {
-      "id": 11,
-      "creator": "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
-      "tokenUri": "http://localhost:3001/uploads/1779444662741.png",
-      "timestamp": "2026-05-22T10:11:04.858Z"
-    },
-    {
-      "id": 12,
-      "creator": "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
-      "tokenUri": "http://localhost:3001/uploads/1779444810854.png",
-      "timestamp": "2026-05-22T10:13:33.358Z"
-    },
-    {
-      "id": 13,
-      "creator": "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
-      "tokenUri": "http://localhost:3001/uploads/1779444902640.png",
-      "timestamp": "2026-05-22T10:15:05.502Z"
-    },
-    {
-      "id": 14,
-      "creator": "0xbDA5747bFD65F08deb54cb465eB87D40e51B197E",
-      "tokenUri": "http://localhost:3001/uploads/1779445769945.png",
-      "timestamp": "2026-05-22T10:29:32.579Z"
-    },
-    {
-      "id": 15,
-      "creator": "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
-      "tokenUri": "http://localhost:3001/uploads/1779446948628.png",
-      "timestamp": "2026-05-22T10:49:11.132Z"
-    },
-    {
-      "id": 16,
-      "creator": "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
-      "tokenUri": "http://localhost:3001/uploads/1779447032009.png",
-      "timestamp": "2026-05-22T10:50:34.718Z"
-    },
-    {
-      "id": 17,
-      "creator": "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
-      "tokenUri": "http://localhost:3001/uploads/1779447289288.png",
-      "timestamp": "2026-05-22T10:54:51.987Z"
-    },
-    {
-      "id": 18,
-      "creator": "0xbDA5747bFD65F08deb54cb465eB87D40e51B197E",
-      "tokenUri": "http://localhost:3001/uploads/1779450246478.png",
-      "name": "sfsf",
-      "description": "dfvdfv",
-      "timestamp": "2026-05-22T11:44:08.783Z"
-    },
-    {
-      "id": 19,
-      "creator": "0xbDA5747bFD65F08deb54cb465eB87D40e51B197E",
-      "tokenUri": "http://localhost:3001/uploads/1779478721701.png",
-      "name": "ola",
-      "description": "ola",
-      "timestamp": "2026-05-22T19:38:44.108Z"
-    },
-    {
-      "id": 20,
-      "creator": "0xbDA5747bFD65F08deb54cb465eB87D40e51B197E",
-      "tokenUri": "http://localhost:3001/uploads/1779700732781.png",
-      "name": "nome do projeto ",
-      "description": "ola sou eu ",
-      "timestamp": "2026-05-25T09:18:55.628Z"
-    },
-    {
-      "id": 21,
-      "creator": "0x70997970c51812dc3a010c7d01b50e0d17dc79c8",
-      "tokenUri": "http://localhost:3001/uploads/1779798400160.png",
-      "name": "olaola",
-      "description": "olaolaola",
-      "timestamp": "2026-05-26T12:26:41.931Z"
-    },
-    {
-      "id": 22,
-      "creator": "0x70997970c51812dc3a010c7d01b50e0d17dc79c8",
-      "tokenUri": "http://localhost:3001/uploads/1779798488887.png",
-      "name": "olaolaaaa",
-      "description": "olaolaolaaa",
-      "timestamp": "2026-05-26T12:28:11.561Z"
-    },
-    {
-      "id": 23,
-      "creator": "0xbda5747bfd65f08deb54cb465eb87d40e51b197e",
-      "tokenUri": "http://localhost:3001/uploads/1779800352025.png",
-      "name": "1",
-      "description": "1",
-      "timestamp": "2026-05-26T12:59:14.730Z"
-    },
-    {
-      "id": 24,
-      "creator": "0xbda5747bfd65f08deb54cb465eb87d40e51b197e",
-      "tokenUri": "http://localhost:3001/uploads/1779800530275.png",
-      "name": "q",
-      "description": "q",
-      "timestamp": "2026-05-26T13:02:12.443Z"
-    }
-  ],
-  "loansHistory": [],
   "users": [
     {
       "username": "ola",
       "password": "ola",
-      "walletAddress": "0xbDA5747bFD65F08deb54cb465eB87D40e51B197E"
-    },
-    {
-      "username": "ole",
-      "password": "ole",
-      "walletAddress": "0xbDA5747bFD65F08deb54cb465eB87D40e51B197E"
+      "walletAddress": "0x70997970C51812dc3A010C7d01b50e0d17dc79C8"
     }
-  ]
+  ],
+  "nfts": [
+    {
+      "id": 1,
+      "creator": "0x70997970c51812dc3a010c7d01b50e0d17dc79c8",
+      "tokenUri": "http://localhost:3001/uploads/1779807293097.png",
+      "name": "ola",
+      "description": "ola",
+      "timestamp": "2026-05-26T14:54:55.500Z"
+    }
+  ],
+  "loansHistory": []
 }

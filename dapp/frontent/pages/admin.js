@@ -7,8 +7,8 @@ const DEX_ABI = [
   "function setGlobalParams(uint256 _cycle, uint256 _interest, uint256 _fee, uint256 _maxDuration) external",
   "function owner() external view returns (address)"
 ];
-// Garante que usas o endereço correto do teu script de deploy local
-const DEX_ADDRESS = "0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9";
+
+const DEX_ADDRESS = "xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266";
 
 export default function AdminConsole() {
   const [rate, setRate] = useState('');
@@ -45,7 +45,7 @@ export default function AdminConsole() {
       const contract = new ethers.Contract(DEX_ADDRESS, DEX_ABI, sig);
       const tx = await contract.setDexSwapRate(ethers.utils.parseEther(rate));
       await tx.wait();
-      alert('Taxa de Câmbio (Swap Rate) atualizada com sucesso!');
+      alert('Taxa de Câmbio atualizada com sucesso!');
     } catch (err) { alert(err.message); }
   };
 
@@ -64,9 +64,11 @@ export default function AdminConsole() {
     container: {
       background: 'radial-gradient(circle at center, #1b1035 0%, #080711 100%)',
       minHeight: '100vh',
+      width: '100vw',                  // Força a largura total da janela
       fontFamily: '"Segoe UI", Roboto, sans-serif',
       color: '#fff',
-      padding: '3rem 1.5rem'
+      padding: '3rem 1.5rem',
+      boxSizing: 'border-box'          // Garante que o padding não estoure o ecrã
     },
     wrapper: {
       maxWidth: '800px',
@@ -128,51 +130,65 @@ export default function AdminConsole() {
   };
 
   return (
-    <div style={styles.container}>
-      <div style={styles.wrapper}>
-        <div style={styles.header}>
-          <div>
-            <h1 style={{ margin: 0, fontSize: '2rem', fontWeight: '800', letterSpacing: '0.5px' }}>🛡️ Protocol Control Console</h1>
-            <small style={{ color: '#8b5cf6' }}>Dono do Contrato: {adminAddress || 'A carregar...'}</small>
-          </div>
-          <Link href="/dashboard" style={styles.btnNav}>← Voltar ao App</Link>
-        </div>
+    <>
+      {/* O SEGREDO ESTÁ AQUI: Remove as margens default do navegador e fixa o fundo */}
+      <style jsx global>{`
+        html, body {
+          margin: 0 !important;
+          padding: 0 !important;
+          background-color: #080711 !important;
+          width: 100% !important;
+          height: 100% !important;
+          overflow-x: hidden;
+        }
+      `}</style>
 
-        {/* AJUSTE VALORIZAÇÃO TOKEN */}
-        <div style={styles.section}>
-          <h3 style={{ marginTop: 0, color: '#d946ef' }}>Ajustar Valorização do Token DEX</h3>
-          <p style={{ color: '#aaa', fontSize: '0.9rem' }}>Define o rácio de conversão de DEX para Wei (Custo por unidade de token).</p>
-          <label style={{ display: 'block', fontSize: '0.9rem', color: '#ccc' }}>Novo Swap Rate (em Wei)</label>
-          <input placeholder="Ex: 1000000000000000" style={styles.input} value={rate} onChange={e => setRate(e.target.value)} /><br/>
-          <button style={styles.btn} onClick={updateRate}>Push Adjustment</button>
-        </div>
-
-        {/* PARÂMETROS GLOBAIS DE EMPRÉSTIMO */}
-        <div style={styles.section}>
-          <h3 style={{ marginTop: 0, color: '#8b5cf6' }}>Reconfigurar Variáveis Globais de Crédito</h3>
-          <p style={{ color: '#aaa', fontSize: '0.9rem', marginBottom: '1.5rem' }}>Ajustes em tempo real para os ciclos de pagamento de taxas de juros do ecossistema.</p>
-          
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+      <div style={styles.container}>
+        <div style={styles.wrapper}>
+          <div style={styles.header}>
             <div>
-              <label style={{ fontSize: '0.9rem', color: '#ccc' }}>Duração do Ciclo (Segundos)</label>
-              <input placeholder="Ex: 60" style={styles.input} value={cycle} onChange={e => setCycle(e.target.value)} />
+              <h1 style={{ margin: 0, fontSize: '2rem', fontWeight: '800', letterSpacing: '0.5px' }}> Central  de Administração</h1>
+              {adminAddress && <small style={{ color: '#8b5cf6' }}>Dono do Contrato: {adminAddress}</small>}
             </div>
-            <div>
-              <label style={{ fontSize: '0.9rem', color: '#ccc' }}>Percentagem de Juros (Ex: 10 = 10%)</label>
-              <input placeholder="Ex: 10" style={styles.input} value={interest} onChange={e => setInterest(e.target.value)} />
-            </div>
-            <div>
-              <label style={{ fontSize: '0.9rem', color: '#ccc' }}>Taxa de Rescisão Precoce (Wei)</label>
-              <input placeholder="Ex: 50000000000000" style={styles.input} value={fee} onChange={e => setFee(e.target.value)} />
-            </div>
-            <div>
-              <label style={{ fontSize: '0.9rem', color: '#ccc' }}>Prazo Máximo Autorizado (Ciclos)</label>
-              <input placeholder="Ex: 10" style={styles.input} value={maxDuration} onChange={e => setMaxDuration(e.target.value)} />
-            </div>
+            <Link href="/dashboard" style={styles.btnNav}>← Voltar ao App</Link>
           </div>
-          <button style={{ ...styles.btn, marginTop: '1rem' }} onClick={updateParams}>Save Configuration</button>
+
+          {/* AJUSTE VALORIZAÇÃO TOKEN */}
+          <div style={styles.section}>
+            <h3 style={{ marginTop: 0, color: '#d946ef' }}>Ajustar Valorização do Token DEX</h3>
+            <p style={{ color: '#aaa', fontSize: '0.9rem' }}>Define o rácio de conversão de DEX para Wei (Custo por unidade de token).</p>
+            <label style={{ display: 'block', fontSize: '0.9rem', color: '#ccc' }}>Novo Swap Rate (em Wei)</label>
+            <input placeholder="Ex: 1000000000000000" style={styles.input} value={rate} onChange={e => setRate(e.target.value)} /><br/>
+            <button style={styles.btn} onClick={updateRate}>Push Adjustment</button>
+          </div>
+
+          {/* PARÂMETROS GLOBAIS DE EMPRÉSTIMO */}
+          <div style={styles.section}>
+            <h3 style={{ marginTop: 0, color: '#8b5cf6' }}>Reconfigurar Variáveis Globais de Crédito</h3>
+            <p style={{ color: '#aaa', fontSize: '0.9rem', marginBottom: '1.5rem' }}>Ajustes em tempo real para os ciclos de pagamento de taxas de juros do ecossistema.</p>
+            
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+              <div>
+                <label style={{ fontSize: '0.9rem', color: '#ccc' }}>Duração do Ciclo (Segundos)</label>
+                <input placeholder="Ex: 60" style={styles.input} value={cycle} onChange={e => setCycle(e.target.value)} />
+              </div>
+              <div>
+                <label style={{ fontSize: '0.9rem', color: '#ccc' }}>Percentagem de Juros (Ex: 10 = 10%)</label>
+                <input placeholder="Ex: 10" style={styles.input} value={interest} onChange={e => setInterest(e.target.value)} />
+              </div>
+              <div>
+                <label style={{ fontSize: '0.9rem', color: '#ccc' }}>Taxa de Rescisão Precoce (Wei)</label>
+                <input placeholder="Ex: 50000000000000" style={styles.input} value={fee} onChange={e => setFee(e.target.value)} />
+              </div>
+              <div>
+                <label style={{ fontSize: '0.9rem', color: '#ccc' }}>Prazo Máximo Autorizado (Ciclos)</label>
+                <input placeholder="Ex: 10" style={styles.input} value={maxDuration} onChange={e => setMaxDuration(e.target.value)} />
+              </div>
+            </div>
+            <button style={{ ...styles.btn, marginTop: '1rem' }} onClick={updateParams}>Save Configuration</button>
+          </div>
         </div>
       </div>
-    </div>
+    </>
   );
 }
