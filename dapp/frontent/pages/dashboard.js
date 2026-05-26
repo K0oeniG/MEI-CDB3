@@ -94,6 +94,38 @@ export default function Dashboard() {
     fetchBlockchainInfrastructure();
   }, []);
 
+  useEffect(() => {
+    const autoConnect = async () => {
+      // Se já tivermos o signer, paramos para não repetir
+      if (signer) return; 
+
+      if (window.ethereum) {
+        const accounts = await window.ethereum.request({ method: 'eth_accounts' });
+        
+        // Se a MetaMask já estiver ligada, "roubamos" o endereço sem pedir clique
+        if (accounts.length > 0) {
+          const prov = new ethers.providers.Web3Provider(window.ethereum);
+          const sig = prov.getSigner();
+          
+          setSigner(sig);
+          setAccount(accounts[0]);
+          
+          // Aqui chamamos as funções que atualizam os dados financeiros
+          // NOTA: Certifica-te que estas funções estão definidas no Dashboard
+          updateDexBalance(accounts[0], sig);
+          fetchMyLoans(accounts[0], sig);
+          fetchMarketData(accounts[0], sig);
+        }
+      }
+    };
+    
+    // Só tentamos conectar se a config da blockchain já tiver carregado
+    if (blockchainConfig) {
+      autoConnect();
+    }
+  }, [blockchainConfig]); // Executa sempre que a config mudar
+  
+
   // B. OBTER SESSÃO E DADOS DO BACKEND (NFTS)
   useEffect(() => {
     if (window.ethereum) {
@@ -357,62 +389,67 @@ const handleMakePayment = async () => {
     }
   };
 
-  const fetchMarketData = async (userAddress, sig) => {
+ const fetchMarketData = async (userAddress, sig) => {
     try {
       const contract = new ethers.Contract(NFT_MARKET_ADDRESS, NFT_MARKET_ABI, sig || signer);
-      const vendas = [];
-      const leiloes = [];
-      const foundAllP2p = [];
-      const meusNfts = []; 
+      
+      const tempVendas = [];
+      const tempLeiloes = [];
+      const tempP2p = [];
+      const tempMeusNfts = [];
+      const idsOcupados = new Set(); 
 
+      // 1. Scan da Blockchain para encontrar o que está no Mercado
+      for (let i = 1; i <= 50; i++) {
+        try {
+          // Verificar Vendas Diretas (CORRIGIDO: listing.active === true)
+          const listing = await contract.listings(i);
+          if (listing.price && listing.price.gt(0) && listing.active === true) {
+            const uri = await contract.tokenURI(i);
+            tempVendas.push({ tokenId: i, price: listing.price, isDexPayment: listing.isDexPayment, uri, seller: listing.seller });
+            idsOcupados.add(i); 
+          }
+
+          // Verificar Leilões
+          const auction = await contract.auctions(i);
+          if (auction.active === true) {
+            const uri = await contract.tokenURI(i);
+            tempLeiloes.push({ tokenId: i, ...auction, uri });
+            idsOcupados.add(i); 
+          }
+
+          // Verificar P2P
+          const p2p = await contract.nftLoans(i);
+          if (p2p.ethRequested && p2p.ethRequested.gt(0) && p2p.active === true) {
+            let uri = "";
+            try { uri = await contract.tokenURI(p2p.tokenId); } catch(err) {}
+            tempP2p.push({ id: i, uri, ...p2p });
+            idsOcupados.add(i);
+          }
+        } catch (e) { continue; }
+      }
+
+      // 2. Scan da Galeria (apenas os NFTs que NÃO estão ocupados em mercado/leilão)
       for (let i = 1; i <= 50; i++) {
         try {
           const owner = await contract.ownerOf(i);
           if (owner.toLowerCase() === userAddress.toLowerCase()) {
-            const uri = await contract.tokenURI(i);
-            meusNfts.push({ tokenId: i, uri });
+            if (!idsOcupados.has(i)) {
+              const uri = await contract.tokenURI(i);
+              tempMeusNfts.push({ tokenId: i, uri });
+            }
           }
-        } catch (e) {}
-
-        try {
-          const listing = await contract.listings(i);
-          if (listing.price && listing.price.gt(0) && listing.sold === false) {
-            const uri = await contract.tokenURI(i);
-            vendas.push({ tokenId: i, price: listing.price, isDexPayment: listing.isDexPayment, uri });
-          }
-        } catch (e) {}
-
-        try {
-          const auction = await contract.auctions(i);
-          if (auction.minPrice && auction.minPrice.gt(0) && auction.active === true) {
-            const uri = await contract.tokenURI(i);
-            leiloes.push({ 
-              tokenId: i, 
-              minPrice: auction.minPrice, 
-              endTime: auction.endTime,
-              highestBid: auction.highestBid, 
-              seller: auction.seller,      
-              highestBidder: auction.highestBidder,
-              uri 
-            });
-          }
-        } catch (e) {}
-
-        try {
-          const p2p = await contract.nftLoans(i);
-          if (p2p.ethRequested && p2p.ethRequested.gt(0)) {
-            let uri = "";
-            try { uri = await contract.tokenURI(p2p.tokenId); } catch(err) {}
-            foundAllP2p.push({ id: i, uri, ...p2p });
-          }
-        } catch (e) {}
-      } 
+        } catch (e) { continue; }
+      }
     
-      setMarketListings(vendas);
-      setActiveAuctions(leiloes);
-      setAllP2pLoans(foundAllP2p);
-      setMyNfts(meusNfts); 
-    } catch (err) { console.error("Erro geral a ler mercado:", err); }
+      // 3. Atualizar estados do React
+      setMarketListings(tempVendas);
+      setActiveAuctions(tempLeiloes);
+      setAllP2pLoans(tempP2p);
+      setMyNfts(tempMeusNfts); 
+    } catch (err) { 
+      console.error("Erro ao ler mercado:", err); 
+    }
   };
 
   const handleBuyNft = async () => {
@@ -495,27 +532,25 @@ const handleMakePayment = async () => {
 
 
 
-  // --- FUNÇÃO PARA LISTAR PARA VENDA (Atualiza a tua antiga) ---
-  const handleListNftForSale = async () => {
-    if (!listTokenId || !listPrice) return alert(' Preencha o Token ID e o Preço.');
-
+const handleListNftForSale = async () => {
     try {
       const contract = new ethers.Contract(NFT_MARKET_ADDRESS, NFT_MARKET_ABI, signer);
       
-      // Validação: Pertence ao utilizador?
-      const owner = await contract.ownerOf(listTokenId);
-      if (owner.toLowerCase() !== account.toLowerCase()) return alert(" Este NFT não lhe pertence.");
-
+      console.log("A iniciar aprovação...");
       await (await contract.approve(NFT_MARKET_ADDRESS, listTokenId)).wait();
-      await (await contract.listNFT(listTokenId, ethers.utils.parseEther(listPrice), isDexPayment)).wait();
       
-      alert(' Listado para venda!');
+      console.log("A executar listNFT...");
+      const tx = await contract.listNFT(listTokenId, ethers.utils.parseEther(listPrice), isDexPayment);
+      const receipt = await tx.wait();
+      
+      console.log("Transação confirmada:", receipt);
+      alert('✅ Listado com sucesso!');
       fetchMarketData(account, signer);
     } catch (err) {
-      alert(" Erro ao listar: " + (err.reason || err.message));
+      console.error("Erro detalhado:", err); 
+      alert("Erro: " + err.message);
     }
   };
-
   // --- FUNÇÃO PARA INICIAR LEILÃO ---
   const handleStartAuction = async () => {
     if (!auctionTokenId || !auctionMinPrice || !auctionDuration) return alert('⚠️ Preencha todos os campos do leilão.');
@@ -560,6 +595,46 @@ const handleMakePayment = async () => {
     }
   };
 
+
+  const WalletMenu = ({ account, sessionUser, connectWallet, logout }) => {
+  if (!sessionUser) {
+    return (
+      <button onClick={() => window.location.href = '/'} style={{ background: '#6366f1', color: '#fff', padding: '10px 20px', borderRadius: '8px', border: 'none', cursor: 'pointer' }}>
+        Login / Register
+      </button>
+    );
+  }
+
+  if (!account) {
+    return (
+      <button onClick={connectWallet} style={{ background: '#10b981', color: '#fff', padding: '10px 20px', borderRadius: '8px', border: 'none', cursor: 'pointer' }}>
+        Conectar Carteira
+      </button>
+    );
+  }
+
+  return (
+    <div style={{ background: '#1e293b', padding: '8px 16px', borderRadius: '20px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+      <span style={{ color: '#cbd5e1', fontSize: '0.9rem' }}>{sessionUser.username}</span>
+      <div style={{ width: '1px', height: '20px', background: '#475569' }} />
+      <button 
+        onClick={logout}
+        style={{ background: 'transparent', color: '#f87171', border: 'none', cursor: 'pointer', fontWeight: 'bold' }}
+      >
+        {`${account.substring(0,6)}...${account.slice(-4)} 🚪`}
+      </button>
+    </div>
+  );
+};
+
+const logout = () => {
+  localStorage.removeItem('user');
+  setSessionUser(null);
+  setAccount('');
+  setSigner(null);
+  window.location.reload(); // Recarrega para limpar todos os estados
+};
+
   // ==============================================================
   // INTERFACE VISUAL
   // ==============================================================
@@ -580,19 +655,23 @@ const handleMakePayment = async () => {
       <div style={{ maxWidth: '950px', margin: '0 auto', fontFamily: '"Segoe UI", sans-serif' }}>
         
         {/* CABEÇALHO */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #222', paddingBottom: '1rem' }}>
-          <div>
-            <h1 style={{ margin: 0, fontWeight: '800', background: 'linear-gradient(90deg, #a855f7, #6366f1)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>NEXUS FINANCIAL PROTOCOL</h1>
-            {sessionUser && <small style={{ color: '#aaa' }}>Autenticado como: <b style={{ color: '#a855f7' }}>{sessionUser.username}</b></small>}
-          </div>
-          <button onClick={connectWallet} style={{ ...btnStyle, background: account ? '#10b981' : '#6366f1' }}>
-            {account ? `Connected: ${account.substring(0,6)}...` : '🦊 Connect Wallet'}
-          </button>
-        </div>
+        
+<div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #222', paddingBottom: '1rem' }}>
+  <h1 style={{ margin: 0, fontWeight: '800', background: 'linear-gradient(90deg, #a855f7, #6366f1)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+    Blockchain 
+  </h1>
+  
+  <WalletMenu 
+    account={account} 
+    sessionUser={sessionUser} 
+    connectWallet={connectWallet} 
+    logout={logout} 
+  />
+</div>
 
         {account && (
            <div style={{ background: 'linear-gradient(90deg, #1d1b3c, #0c0b1d)', padding: '1rem', borderRadius: '8px', margin: '1.5rem 0', border: '1px solid #4c3799', display: 'flex', justifyContent: 'space-between' }}>
-             <span style={{ fontWeight: 'bold', color: '#c084fc' }}>📊 Carteira Sincronizada Ativa</span>
+             <span style={{ fontWeight: 'bold', color: '#c084fc' }}>📊 Carteira Sincronizada </span>
              <span>Saldo da Conta: <b>{dexBalance} DEX</b></span>
            </div>
         )}
@@ -631,37 +710,38 @@ const handleMakePayment = async () => {
               </div>
             </div>
 
-            <h3 style={{ color: '#6366f1' }}>1) DEX Market Exchange</h3>
+            <h3 style={{ color: '#6366f1' }}>Mercado de Câmbio DEX</h3>
             <div style={{ display: 'flex', gap: '1.5rem', marginBottom: '2rem' }}>
               <div style={cardStyle}>
-                <h4>Buy DEX Tokens</h4>
+                <h4> Comprar DEX </h4>
                 <input style={inputStyle} placeholder="ETH a Enviar" onChange={e => setEthAmount(e.target.value)} />
-                <button style={{ ...btnStyle, background: '#3b82f6' }} onClick={handleBuyDex}>Execute Buy</button>
+                <button style={{ ...btnStyle, background: '#3b82f6' }} onClick={handleBuyDex}>Comprar</button>
               </div>
               <div style={cardStyle}>
-                <h4>Sell DEX Tokens</h4>
+                <h4>Vender DEX </h4>
                 <input style={inputStyle} placeholder="DEX a Vender" onChange={e => setDexAmount(e.target.value)} />
-                <button style={{ ...btnStyle, background: '#ef4444' }} onClick={handleSellDex}>Execute Sell</button>
+                <button style={{ ...btnStyle, background: '#ef4444' }} onClick={handleSellDex}>Vender</button>
               </div>
             </div>
             
-            <h3 style={{ color: '#6366f1' }}>2) Standard Collateralized Lending Pool</h3>
+            <h3 style={{ color: '#6366f1' }}>Fundo de Crédito Standard</h3>
             <div style={{ display: 'flex', gap: '1.5rem' }}>
               <div style={cardStyle}>
-                <h4>Request Liquidity (Lock DEX)</h4>
+                <h4>Requisitar Empréstimo (Imobilizar DEX)</h4>
                 <input style={inputStyle} placeholder="Quantidade DEX Colateral" onChange={e => setLoanCollateral(e.target.value)} />
                 <input style={inputStyle} placeholder="Duração em Ciclos (Ex: 3)" onChange={e => setLoanDeadline(e.target.value)} />
-                <button style={{ ...btnStyle, background: '#10b981' }} onClick={handleTakeLoan}>Process Loan</button>
-                <button style={{ ...btnStyle, background: '#ef4444', marginLeft: '10px' }} onClick={handleTerminateLoan}>
-                  Encerrar Totalmente
-                </button>
+                <button style={{ ...btnStyle, background: '#10b981' }} onClick={handleTakeLoan}>Processar empréstimo</button>
+              
               </div>
 
               <div style={cardStyle}>
-                <h4>Repay Installment / Early Close</h4>
+                <h4>Pagar Prestação / Liquidar Antecipadamente</h4>
                 <input style={inputStyle} placeholder="ID do Empréstimo" onChange={e => setPaymentLoanId(e.target.value)} />
                 <input style={inputStyle} placeholder="ETH a Enviar para Amortizar" onChange={e => setPaymentValue(e.target.value)} />
-                <button style={{ ...btnStyle, background: '#f59e0b' }} onClick={handleMakePayment}>Submit Payment</button>
+                <button style={{ ...btnStyle, background: '#f59e0b' }} onClick={handleMakePayment}>Submeter Pagamento</button>
+                  <button style={{ ...btnStyle, background: '#ef4444', marginLeft: '10px' }} onClick={handleTerminateLoan}>
+                  Encerrar empréstimo
+                </button>
               </div>
             </div>
           </section>
@@ -954,7 +1034,7 @@ const handleMakePayment = async () => {
               </>
             )}
 
-            <h3 style={{ color: '#a855f7', borderTop: '1px solid #333', paddingTop: '2rem' }}>⚙️ Ferramentas de Criador & Vendedor</h3>
+            <h3 style={{ color: '#a855f7', borderTop: '1px solid #333', paddingTop: '2rem' }}> Ferramentas</h3>
             
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1.5rem', marginBottom: '2rem', width: '100%' }}>
               <div style={cardStyle}>
@@ -991,7 +1071,7 @@ const resDb = await axios.get('http://localhost:3001/api/nfts');
     setBackendNfts(resDb.data);
 
                   } catch (e) { alert(e.message); }
-                }}>Forge Asset</button>
+                }}>Criar NFT</button>
               </div>
               
               <div style={cardStyle}>
@@ -1070,7 +1150,7 @@ const resDb = await axios.get('http://localhost:3001/api/nfts');
                       })()}
 
                       <div style={{ background: '#064e3b', padding: '1rem', borderRadius: '8px' }}>
-                        <p style={{ margin: '0 0 5px 0', color: '#a7f3d0', fontSize: '0.85rem' }}>👤 Mutuário (Criador):</p>
+                        <p style={{ margin: '0 0 5px 0', color: '#a7f3d0', fontSize: '0.85rem' }}>👤 Criador:</p>
                         <p style={{ margin: 0, color: '#fff', fontFamily: 'monospace', fontSize: '1.05rem', overflowWrap: 'anywhere' }}>
                           {selectedP2pLoan.borrower}
                         </p>
@@ -1231,7 +1311,7 @@ const resDb = await axios.get('http://localhost:3001/api/nfts');
               )}
             </div>
 
-            <h3 style={{ color: '#3b82f6', borderTop: '1px solid #333', paddingTop: '2rem' }}>⚙️ Ferramentas de Mutuário</h3>
+            <h3 style={{ color: '#3b82f6', borderTop: '1px solid #333', paddingTop: '2rem' }}> Ferramentas </h3>
             
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 350px))', gap: '1.5rem', marginBottom: '2rem', width: '100%' }}>
               <div style={{ ...cardStyle, borderColor: '#3b82f6' }}>
@@ -1242,9 +1322,9 @@ const resDb = await axios.get('http://localhost:3001/api/nfts');
                 <input id="newLoanEth" style={inputStyle} placeholder="ETH Requisitado" />
                 <input id="newLoanTime" style={inputStyle} placeholder="Prazo (Segundos)" />
                 
-                <button style={{ ...btnStyle, background: '#2563eb', width: '100%', marginTop: '10px' }} onClick={async () => {
+                <button style={{ ...btnStyle, background: '#2563eb', width: '100%', marginTop: '10px' }} onClick={
                 handleRequestP2pLoan
-                }}>Solicitar Financiamento</button>
+                }>Solicitar Financiamento</button>
               </div>
             </div>
 

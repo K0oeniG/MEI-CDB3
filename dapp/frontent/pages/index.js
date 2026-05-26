@@ -2,59 +2,49 @@ import { useState } from 'react';
 import { useRouter } from 'next/router';
 import { ethers } from 'ethers';
 
-export default function LandingPage() {
+export default function LoginPage() {
   const router = useRouter();
-  const [view, setView] = useState('landing'); // landing, login, register, forgot, connect_wallet
+  const [view, setView] = useState('login'); // Começa logo no login
   
-  // Form States
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [loggedInUser, setLoggedInUser] = useState(null);
 
-  // Ações de Autenticação Off-chain
   const handleRegister = async (e) => {
     e.preventDefault();
-    try {
-      const res = await fetch('http://localhost:3001/api/auth/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password })
-      });
-      const data = await res.json();
-      if (data.error) return alert(data.error);
-      
-      alert(data.message);
-      setView('login');
-    } catch (err) { alert(err.message); }
+    const res = await fetch('http://localhost:3001/api/auth/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password })
+    });
+    const data = await res.json();
+    if (data.error) return alert(data.error);
+    alert("Conta criada! Agora faça login.");
+    setView('login');
   };
 
   const handleLogin = async (e) => {
     e.preventDefault();
-    try {
-      const res = await fetch('http://localhost:3001/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password })
-      });
-      const data = await res.json();
-      if (data.error) return alert(data.error);
+    const res = await fetch('http://localhost:3001/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password })
+    });
+    const data = await res.json();
+    if (data.error) return alert(data.error);
 
-      setLoggedInUser(data.user.username);
-      // Avança para a etapa de conectar a carteira conforme o fluxo do enunciado
-      setView('connect_wallet');
-    } catch (err) { alert(err.message); }
+    setLoggedInUser(data.user.username);
+    setView('connect_wallet');
   };
 
-  // Fluxo de conexão Web3 e associação à base de dados
   const handleConnectWallet = async () => {
-    if (!window.ethereum) return alert('Por favor, instala a MetaMask!');
+    if (!window.ethereum) return alert('Instale a MetaMask!');
     try {
       const provider = new ethers.providers.Web3Provider(window.ethereum);
       await provider.send("eth_requestAccounts", []);
       const signer = provider.getSigner();
       const walletAddress = await signer.getAddress();
 
-      // Envia para o backend para associar a carteira à conta logada
       const res = await fetch('http://localhost:3001/api/auth/connect-wallet', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -62,25 +52,24 @@ export default function LandingPage() {
       });
       const data = await res.json();
       
-      alert(`Sucesso! Carteira ${walletAddress.substring(0,6)}... associada à conta ${loggedInUser}`);
-      
-      // Salva a sessão local simples e redireciona para o painel principal
       localStorage.setItem('user', JSON.stringify(data.user));
       router.push('/dashboard');
     } catch (err) { alert(err.message); }
   };
 
-  // Estilos inline futuristas Web3 Dark elegante
+  // Mantém os teus estilos originais aqui...
   const styles = {
     container: {
       background: 'radial-gradient(circle at center, #1a1a3a 0%, #0b0b12 100%)',
       minHeight: '100vh',
+      width: '100vw',        // Garante que ocupa a largura total
+      margin: 0,             // Remove margens
+      padding: 0,            // Remove padding
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
       fontFamily: '"Segoe UI", Roboto, sans-serif',
-      color: '#fff',
-      padding: '1rem'
+      color: '#fff'
     },
     card: {
       background: 'rgba(20, 20, 35, 0.85)',
@@ -138,83 +127,61 @@ export default function LandingPage() {
     }
   };
 
+
   return (
-    <div style={styles.container}>
-      <div style={styles.card}>
-        {/* LOGO DA PLATAFORMA */}
-        <div style={{ fontSize: '3rem', marginBottom: '0.5rem' }}>🌌</div>
-        <h2 style={{ marginBottom: '1.5rem', fontWeight: '800', letterSpacing: '1px' }}>Block App</h2>
-
-        {/* VISTA 1: LANDING INICIAL */}
-        {view === 'landing' && (
-          <div>
-            <p style={{ color: '#aaa', marginBottom: '2rem' }}>A nova era do Lending descentralizado de Ether e colaterais NFT.</p>
-            <button style={styles.btnPrimary} onClick={() => setView('login')}>Entrar na Plataforma</button>
-            <button style={{ ...styles.btnPrimary, background: '#252542', marginTop: '0.5rem' }} onClick={() => setView('register')}>Criar Nova Conta</button>
-          </div>
-        )}
-
-        {/* VISTA 2: LOGIN TRADICIONAL */}
-        {view === 'login' && (
-          <form onSubmit={handleLogin}>
-            <h3>Iniciar Sessão</h3>
-            <input style={styles.input} type="text" placeholder="Nome de Utilizador" required onChange={e => setUsername(e.target.value)} />
-            <input style={styles.input} type="password" placeholder="Palavra-passe" required onChange={e => setPassword(e.target.value)} />
-            
-            <span style={styles.link} onClick={() => setView('forgot')}>Esqueci-me da password</span>
-            
-            <button type="submit" style={styles.btnPrimary}>Login</button>
-            
-            <div style={{ margin: '1.5rem 0', color: '#666' }}>⎯⎯⎯ OU ⎯⎯⎯</div>
-            <button type="button" style={styles.btnSocial} onClick={() => alert('Integração Google Fictícia')}>🌐 Entrar com Google</button>
-            <button type="button" style={styles.btnSocial} onClick={() => alert('Integração Discord Fictícia')}>👾 Entrar com Discord</button>
-            
-            <p style={{ marginTop: '1.5rem', fontSize: '0.9rem' }}>Não tem conta? <span style={styles.link} onClick={() => setView('register')}>Registe-se</span></p>
-          </form>
-        )}
-
-        {/* VISTA 3: CRIAR CONTA (REGISTO) */}
-        {view === 'register' && (
-          <form onSubmit={handleRegister}>
-            <h3>Criar Conta Web3 off-chain</h3>
-            <input style={styles.input} type="text" placeholder="Escolha um Utilizador" required onChange={e => setUsername(e.target.value)} />
-            <input style={styles.input} type="password" placeholder="Defina a Palavra-passe" required onChange={e => setPassword(e.target.value)} />
-            
-            <button type="submit" style={styles.btnPrimary}>Registar e Avançar</button>
-            <p style={{ marginTop: '1.5rem', fontSize: '0.9rem' }}>Já tem conta? <span style={styles.link} onClick={() => setView('login')}>Faça Login</span></p>
-          </form>
-        )}
-
-        {/* VISTA 4: RECUPERAR PALAVRA-PASSE */}
-        {view === 'forgot' && (
-          <div>
-            <h3>Recuperar Password</h3>
-            <p style={{ color: '#aaa', fontSize: '0.9rem' }}>Insira o seu utilizador para redefinir as credenciais.</p>
-            <input style={styles.input} type="text" placeholder="Nome de Utilizador" />
-            <button style={styles.btnPrimary} onClick={() => { alert('Pedido de redefinição enviado!'); setView('login'); }}>Enviar Link</button>
-            <p style={{ marginTop: '1.5rem' }}><span style={styles.link} onClick={() => setView('login')}>Voltar ao Login</span></p>
-          </div>
-        )}
-
-        {/* VISTA 5: CONECTAR CARTEIRA (APÓS LOGIN - REQUISITO DO FLUXO DO ENUNCIADO) */}
-        {view === 'connect_wallet' && (
-          <div>
-            <h3 style={{ color: '#10b981' }}>✓ Autenticado como {loggedInUser}</h3>
-            <p style={{ color: '#aaa', fontSize: '0.9rem', marginBottom: '2rem' }}>Para interagir com o protocolo DeFi, associe a sua MetaMask à sua conta Nexus.</p>
-            <button style={{ ...styles.btnPrimary, background: 'linear-gradient(90deg, #f59e0b 0%, #d97706 100%)' }} onClick={handleConnectWallet}>
-              🦊 Conectar Carteira MetaMask
-            </button>
-          </div>
-        )}
-      </div>
-
+    <>
       <style jsx global>{`
-        body {
-          margin: 0;
-          padding: 0;
-          background-color: #0b0b12;
+        html, body, #__next {
+          margin: 0 !important;
+          padding: 0 !important;
+          width: 100%;
+          height: 100%;
+          background-color: #0b0b12 !important;
         }
       `}</style>
-    </div>
+
+      <div style={styles.container}>
+        <div style={styles.card}>
+          <div style={{ fontSize: '3rem', marginBottom: '0.5rem' }}>🌌</div>
+          <h2 style={{ marginBottom: '1.5rem', fontWeight: '800' }}>Blockchain</h2>
+
+          {view === 'login' && (
+            <form onSubmit={handleLogin}>
+              <h3>Acesso Restrito</h3>
+              <input style={styles.input} type="text" placeholder="Utilizador" required onChange={e => setUsername(e.target.value)} />
+              <input style={styles.input} type="password" placeholder="Password" required onChange={e => setPassword(e.target.value)} />
+              <button type="submit" style={styles.btnPrimary}>Entrar</button>
+              <p style={{ marginTop: '1rem', fontSize: '0.9rem' }}>
+                Sem conta? <span style={styles.link} onClick={() => setView('register')}>Registe-se</span>
+              </p>
+            </form>
+          )}
+
+          {view === 'register' && (
+            <form onSubmit={handleRegister}>
+              <h3>Registo Obrigatório</h3>
+              <input style={styles.input} type="text" placeholder="Novo Utilizador" required onChange={e => setUsername(e.target.value)} />
+              <input style={styles.input} type="password" placeholder="Nova Password" required onChange={e => setPassword(e.target.value)} />
+              <button type="submit" style={styles.btnPrimary}>Criar Conta</button>
+              <p style={{ marginTop: '1rem', fontSize: '0.9rem' }}>
+                Já tem conta? <span style={styles.link} onClick={() => setView('login')}>Voltar ao Login</span>
+              </p>
+            </form>
+          )}
+
+          {view === 'connect_wallet' && (
+            <div>
+              <h3 style={{ color: '#10b981' }}>Passo Final: Autenticação</h3>
+              <p style={{ color: '#aaa', fontSize: '0.9rem', marginBottom: '2rem' }}>
+                Associe a sua carteira MetaMask para aceder ao Dashboard.
+              </p>
+              <button style={styles.btnPrimary} onClick={handleConnectWallet}>
+                🦊 Ligar Carteira
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    </>
   );
 }

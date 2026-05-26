@@ -27,10 +27,10 @@ contract NFTPawningMarketplace is ERC721URIStorage {
 
     struct NftLoan {
         address borrower;
-        address provider;     // The third party providing the DEX guarantee
+        address provider;     
         uint256 tokenId;
         uint256 ethRequested;
-        uint256 dexRequired;  // Amount of DEX required to back this loan
+        uint256 dexRequired;  
         uint256 expiry;
         bool funded;
         bool active;
@@ -192,7 +192,7 @@ contract NFTPawningMarketplace is ERC721URIStorage {
         require(loan.active && !loan.funded, "Pedido de emprestimo indisponivel.");
 
         require(msg.value == loan.ethRequested, "Tens de enviar o valor exato de ETH pedido.");
-        
+
         require(dexContract.balanceOf(msg.sender) >= loan.dexRequired, "DEX insuficiente para colateral.");
 
         // Pull DEX security from Provider into this contract
