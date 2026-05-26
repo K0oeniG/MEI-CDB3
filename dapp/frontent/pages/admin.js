@@ -11,6 +11,7 @@ const DEX_ABI = [
 const DEX_ADDRESS = "0x5FbDB2315678afecb367f032d93F642f64180aa3";
 
 export default function AdminConsole() {
+  const [currentAccount, setCurrentAccount] = useState('');
   const [rate, setRate] = useState('');
   const [cycle, setCycle] = useState('');
   const [interest, setInterest] = useState('');
@@ -39,7 +40,21 @@ export default function AdminConsole() {
     fetchAdmin();
   }, []);
 
+  useEffect(() => {
+  const getAcc = async () => {
+    if (window.ethereum) {
+      const accounts = await window.ethereum.request({ method: 'eth_accounts' });
+      if (accounts.length > 0) setCurrentAccount(accounts[0].toLowerCase());
+    }
+  };
+  getAcc();
+}, []);
+
   const updateRate = async () => {
+
+    if (currentAccount !== adminAddress.toLowerCase()) {
+      return alert("Acesso Negado: Esta não é a conta de administrador.");
+    }
     try {
       const sig = await getSigner();
       const contract = new ethers.Contract(DEX_ADDRESS, DEX_ABI, sig);
@@ -50,6 +65,9 @@ export default function AdminConsole() {
   };
 
   const updateParams = async () => {
+    if (currentAccount !== adminAddress.toLowerCase()) {
+      return alert("Acesso Negado: Esta não é a conta de administrador.");
+    }
     try {
       const sig = await getSigner();
       const contract = new ethers.Contract(DEX_ADDRESS, DEX_ABI, sig);
@@ -59,16 +77,16 @@ export default function AdminConsole() {
     } catch (err) { alert(err.message); }
   };
 
-  // Estilos Web3 Dark Elegante
+
   const styles = {
     container: {
       background: 'radial-gradient(circle at center, #1b1035 0%, #080711 100%)',
       minHeight: '100vh',
-      width: '100vw',                  // Força a largura total da janela
+      width: '100vw',             
       fontFamily: '"Segoe UI", Roboto, sans-serif',
       color: '#fff',
       padding: '3rem 1.5rem',
-      boxSizing: 'border-box'          // Garante que o padding não estoure o ecrã
+      boxSizing: 'border-box'          
     },
     wrapper: {
       maxWidth: '800px',
