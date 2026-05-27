@@ -1,20 +1,5 @@
 {
-  "users": [
-    {
-      "username": "ola",
-      "password": "ola",
-      "walletAddress": "0x70997970C51812dc3A010C7d01b50e0d17dc79C8"
-    }
-  ],
-  "nfts": [
-    {
-      "id": 1,
-      "creator": "0x70997970c51812dc3a010c7d01b50e0d17dc79c8",
-      "tokenUri": "http://localhost:3001/uploads/1779807293097.png",
-      "name": "ola",
-      "description": "ola",
-      "timestamp": "2026-05-26T14:54:55.500Z"
-    }
-  ],
+  "users": [],
+  "nfts": [],
   "loansHistory": []
 }

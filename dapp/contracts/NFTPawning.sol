@@ -40,6 +40,7 @@ contract NFTPawningMarketplace is ERC721URIStorage {
     mapping(uint256 => Auction) public auctions;
     mapping(uint256 => NftLoan) public nftLoans;
 
+    address payable public dappOwner;
     event NFTMinted(address indexed owner, uint256 tokenId, string tokenURI);
     event NFTListed(uint256 indexed tokenId, uint256 price, bool isDexPayment);
     event NFTSold(uint256 indexed tokenId, address buyer, address seller, uint256 price);
@@ -52,6 +53,7 @@ contract NFTPawningMarketplace is ERC721URIStorage {
 
     constructor(address payable _dexContractAddress) ERC721("DAppNFT", "DNFT") {
         dexContract = DecentralizedFinance(_dexContractAddress);
+        dappOwner = payable(msg.sender);
     }
 
     // ==========================================
@@ -87,18 +89,34 @@ contract NFTPawningMarketplace is ERC721URIStorage {
         require(listing.active, "NFT nao esta a venda.");
         address seller = listing.seller;
 
+        uint256 totalPrice = listing.price;
+        
+       
+        uint256 ownerFee = (totalPrice * 5) / 100;
+        uint256 sellerShare = totalPrice - ownerFee;
+
         if (listing.isDexPayment) {
-            require(dexContract.balanceOf(msg.sender) >= listing.price, "DEX insuficiente.");
-            dexContract.transferFrom(msg.sender, seller, listing.price);
+            require(dexContract.balanceOf(msg.sender) >= totalPrice, "DEX insuficiente.");
+            
+            // Paga 5% ao dono da DApp
+            dexContract.transferFrom(msg.sender, dappOwner, ownerFee);
+            // Paga 95% ao vendedor
+            dexContract.transferFrom(msg.sender, seller, sellerShare);
         } else {
-            require(msg.value == listing.price, "ETH incorreto enviado.");
-            (bool success, ) = payable(seller).call{value: listing.price}("");
-            require(success, "Falha na transferencia de ETH.");
+            require(msg.value == totalPrice, "ETH incorreto enviado.");
+            
+            // Paga 5% ao dono da DApp em ETH
+            (bool feeSuccess, ) = dappOwner.call{value: ownerFee}("");
+            require(feeSuccess, "Falha na taxa do owner.");
+
+            // Paga 95% ao vendedor em ETH
+            (bool sellerSuccess, ) = payable(seller).call{value: sellerShare}("");
+            require(sellerSuccess, "Falha na transferencia de ETH ao vendedor.");
         }
 
         _transfer(seller, msg.sender, tokenId);
         listing.active = false;
-        emit NFTSold(tokenId, msg.sender, seller, listing.price);
+        emit NFTSold(tokenId, msg.sender, seller, totalPrice);
     }
 
 
@@ -160,14 +178,25 @@ contract NFTPawningMarketplace is ERC721URIStorage {
         auction.active = false;
 
         if (auction.highestBidder != address(0)) {
-            // Transfer ETH to seller
-            (bool success, ) = payable(auction.seller).call{value: auction.highestBid}("");
-            require(success, "Falha ao pagar vendedor.");
-            // Transfer NFT to winner
+            uint256 totalBid = auction.highestBid;
+            
+            // Calcula as taxas
+            uint256 ownerFee = (totalBid * 5) / 100;
+            uint256 sellerShare = totalBid - ownerFee;
+
+            // Transfere 5% ETH para o dono da DApp
+            (bool feeSuccess, ) = dappOwner.call{value: ownerFee}("");
+            require(feeSuccess, "Falha na taxa do owner.");
+
+            // Transfere 95% ETH para o vendedor
+            (bool sellerSuccess, ) = payable(auction.seller).call{value: sellerShare}("");
+            require(sellerSuccess, "Falha ao pagar vendedor.");
+            
+            // Transfere NFT para o vencedor
             _transfer(address(this), auction.highestBidder, tokenId);
-            emit NFTSold(tokenId, auction.highestBidder, auction.seller, auction.highestBid);
+            emit NFTSold(tokenId, auction.highestBidder, auction.seller, totalBid);
         } else {
-            // Return NFT to seller if no bids
+            // Devolve NFT ao vendedor se não houver lances
             _transfer(address(this), auction.seller, tokenId);
         }
     }

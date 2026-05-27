@@ -1244,6 +1244,19 @@
     },
     {
       "inputs": [],
+      "name": "dappOwner",
+      "outputs": [
+        {
+          "internalType": "address payable",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
       "name": "dexContract",
       "outputs": [
         {
