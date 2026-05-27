@@ -2,17 +2,17 @@ const express = require('express');
 const cors = require('cors');
 const fs = require('fs');
 const path = require('path');
-const multer = require('multer'); // ADICIONADO: Importar o multer
+const multer = require('multer'); 
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 
 // ==========================================
-// CONFIGURAÇÃO DO UPLOAD DE IMAGENS (NOVO)
+// CONFIGURAÇÃO DO UPLOAD DE IMAGENS 
 // ==========================================
 
-// 1. Cria a pasta "uploads" automaticamente se não existir
+
 const uploadsDir = path.join(__dirname, 'uploads');
 if (!fs.existsSync(uploadsDir)) {
     fs.mkdirSync(uploadsDir);
@@ -21,7 +21,7 @@ if (!fs.existsSync(uploadsDir)) {
 // 2. Diz ao Express para servir os ficheiros desta pasta publicamente
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-// 3. Configura o Multer (Onde guardar e com que nome)
+//  Configura o Multer (Onde guardar e com que nome)
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
     cb(null, 'uploads/') 
@@ -34,24 +34,24 @@ const upload = multer({ storage: storage });
 
 
 // ==========================================
-// BASE DE DADOS LOCAL
+// BASE DE DADOS 
 // ==========================================
 
-// Definir o caminho da base de dados local
+
 const DB_FILE = path.join(__dirname, 'db.json');
 
-// Inicializar a base de dados se ela não existir
+
 if (!fs.existsSync(DB_FILE)) {
     fs.writeFileSync(DB_FILE, JSON.stringify({ users: [], nfts: [], loansHistory: [] }, null, 2));
 }
 
-// Funções auxiliares para ler e escrever na BD
+
 const readDB = () => JSON.parse(fs.readFileSync(DB_FILE, 'utf8'));
 const writeDB = (data) => fs.writeFileSync(DB_FILE, JSON.stringify(data, null, 2));
 
 
 // ==========================================
-// 1. ROTAS DE AUTENTICAÇÃO
+//  ROTAS DE AUTENTICAÇÃO
 // ==========================================
 
 app.post('/api/auth/register', (req, res) => {
@@ -105,10 +105,10 @@ app.post('/api/auth/connect-wallet', (req, res) => {
 
 
 // ==========================================
-// 2. ROTAS DE NFTS E UPLOADS
+// ROTAS DE NFTS E UPLOADS
 // ==========================================
 
-// ROTA NOVA: Receber imagem do Frontend
+// Receber imagem do Frontend
 app.post('/api/upload', upload.single('nftImage'), (req, res) => {
   if (!req.file) return res.status(400).json({ error: "Nenhuma imagem enviada" });
   
@@ -116,15 +116,15 @@ app.post('/api/upload', upload.single('nftImage'), (req, res) => {
   res.json({ imageUrl: imageUrl });
 });
 
-// Get all tracked NFTs
+
 app.get('/api/nfts', (req, res) => {
     const db = readDB();
     res.json(db.nfts || []);
 });
 
-// Cache a newly minted NFT from the client
+
 app.post('/api/nfts', (req, res) => {
-    // 1. Adicionamos 'name' e 'description' à receção dos dados
+  
     const { creator, tokenUri, name, description } = req.body; 
     const db = readDB();
     
@@ -147,7 +147,7 @@ app.post('/api/nfts', (req, res) => {
 
 
 // ==========================================
-// 3. ROTA WEB2.5: SERVIR CONFIGURAÇÕES DA BLOCKCHAIN
+//  ROTA CONFIGURAÇÕES DA BLOCKCHAIN
 // ==========================================
 const CONFIG_FILE = path.join(__dirname, 'contractConfig.json');
 
