@@ -149,7 +149,7 @@ export default function AdminConsole() {
 
   return (
     <>
-      {/* O SEGREDO ESTÁ AQUI: Remove as margens default do navegador e fixa o fundo */}
+     
       <style jsx global>{`
         html, body {
           margin: 0 !important;
@@ -171,7 +171,7 @@ export default function AdminConsole() {
             <Link href="/dashboard" style={styles.btnNav}>← Voltar ao App</Link>
           </div>
 
-          {/* AJUSTE VALORIZAÇÃO TOKEN */}
+          {/*VALORIZAÇÃO do TOKEN */}
           <div style={styles.section}>
             <h3 style={{ marginTop: 0, color: '#d946ef' }}>Ajustar Valorização do Token DEX</h3>
             <p style={{ color: '#aaa', fontSize: '0.9rem' }}>Define o rácio de conversão de DEX para Wei (Custo por unidade de token).</p>
@@ -203,7 +203,7 @@ export default function AdminConsole() {
                 <input placeholder="Ex: 10" style={styles.input} value={maxDuration} onChange={e => setMaxDuration(e.target.value)} />
               </div>
             </div>
-            <button style={{ ...styles.btn, marginTop: '1rem' }} onClick={updateParams}>Save Configuration</button>
+            <button style={{ ...styles.btn, marginTop: '1rem' }} onClick={updateParams}>Guardar Configurações</button>
           </div>
         </div>
       </div>

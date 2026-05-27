@@ -12,7 +12,7 @@ contract NFTPawningMarketplace is ERC721URIStorage {
     struct Listing {
         address seller;
         uint256 price;
-        bool isDexPayment; // true if listing demands DEX, false if ETH
+        bool isDexPayment; 
         bool active;
     }
 
@@ -108,11 +108,10 @@ contract NFTPawningMarketplace is ERC721URIStorage {
         require(listing.active, "A listagem nao esta ativa.");
         require(listing.seller == msg.sender, "Apenas o vendedor pode cancelar.");
 
-        // Desativa a listagem
+
         listing.active = false;
         
-        // Se quiseres, podes criar um evento no topo do contrato e emiti-lo aqui:
-        // emit ListingCancelled(tokenId);
+      
     }
 
 
@@ -137,7 +136,7 @@ contract NFTPawningMarketplace is ERC721URIStorage {
         require(msg.value > auction.minPrice, "Abaixo do preco minimo.");
         require(msg.value > auction.highestBid, "Ja existe uma licitacao maior.");
 
-        // Se faltarem 5 segundos ou menos para o fim, estende por mais 10 segundos
+        
         if (auction.endTime - block.timestamp <= 5) {
             auction.endTime += 10;
         }
@@ -174,7 +173,7 @@ contract NFTPawningMarketplace is ERC721URIStorage {
     }
 
     // ==========================================
-    // 5) NFT ETHER LENDING WITH P2P DEX BACKING
+    //  NFT ETHER LENDING WITH P2P DEX BACKING
     // ==========================================
     function requestNftLoan(uint256 tokenId, uint256 ethRequested, uint256 durationSecs) external {
         require(ownerOf(tokenId) == msg.sender, "Nao possui o NFT.");
@@ -194,7 +193,7 @@ contract NFTPawningMarketplace is ERC721URIStorage {
             tokenId: tokenId,
             ethRequested: ethRequested,
             dexRequired: dexRequired,
-            expiry: durationSecs, // Will save timestamp upon funding
+            expiry: durationSecs,
             funded: false,
             active: true
         });

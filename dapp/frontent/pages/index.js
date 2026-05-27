@@ -4,7 +4,7 @@ import { ethers } from 'ethers';
 
 export default function LoginPage() {
   const router = useRouter();
-  const [view, setView] = useState('login'); // Começa logo no login
+  const [view, setView] = useState('login'); 
   
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -57,14 +57,14 @@ export default function LoginPage() {
     } catch (err) { alert(err.message); }
   };
 
-  // Mantém os teus estilos originais aqui...
+  
   const styles = {
     container: {
       background: 'radial-gradient(circle at center, #1a1a3a 0%, #0b0b12 100%)',
       minHeight: '100vh',
-      width: '100vw',        // Garante que ocupa a largura total
-      margin: 0,             // Remove margens
-      padding: 0,            // Remove padding
+      width: '100vw',        
+      margin: 0,             
+      padding: 0,           
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
@@ -142,7 +142,7 @@ export default function LoginPage() {
 
       <div style={styles.container}>
         <div style={styles.card}>
-          <div style={{ fontSize: '3rem', marginBottom: '0.5rem' }}>🌌</div>
+          
           <h2 style={{ marginBottom: '1.5rem', fontWeight: '800' }}>Blockchain</h2>
 
           {view === 'login' && (

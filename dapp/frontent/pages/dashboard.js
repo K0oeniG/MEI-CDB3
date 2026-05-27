@@ -5,7 +5,7 @@ import axios from 'axios';
 export default function Dashboard() {
 
   // ==============================================================
-  // 1. TODOS OS ESTADOS (HOOKS) DECLARADOS NO INÍCIO
+  //  TODOS OS ESTADOS
   // ==============================================================
   const [blockchainConfig, setBlockchainConfig] = useState(null);
   const [loadingConfig, setLoadingConfig] = useState(true);
@@ -75,7 +75,7 @@ export default function Dashboard() {
   const [myP2pLoans, setMyP2pLoans] = useState([]);
 
   // ==============================================================
-  // 2. TODOS OS USE EFFECTS
+  //  USE EFFECTS
   // ==============================================================
 
   // A. OBTER CONFIGURAÇÃO WEB2.5
@@ -86,7 +86,7 @@ export default function Dashboard() {
         setBlockchainConfig(res.data);
         setLoadingConfig(false); 
       } catch (e) {
-        console.error("Falha crítica ao obter ecossistema Web2.5 do backend:", e);
+        console.error("Falha crítica do backend:", e);
         setConfigError(true);
         setLoadingConfig(false);
       }
@@ -96,13 +96,13 @@ export default function Dashboard() {
 
   useEffect(() => {
     const autoConnect = async () => {
-      // Se já tivermos o signer, paramos para não repetir
+     
       if (signer) return; 
 
       if (window.ethereum) {
         const accounts = await window.ethereum.request({ method: 'eth_accounts' });
         
-        // Se a MetaMask já estiver ligada, "roubamos" o endereço sem pedir clique
+        
         if (accounts.length > 0) {
           const prov = new ethers.providers.Web3Provider(window.ethereum);
           const sig = prov.getSigner();
@@ -110,8 +110,7 @@ export default function Dashboard() {
           setSigner(sig);
           setAccount(accounts[0]);
           
-          // Aqui chamamos as funções que atualizam os dados financeiros
-          // NOTA: Certifica-te que estas funções estão definidas no Dashboard
+       
           updateDexBalance(accounts[0], sig);
           fetchMyLoans(accounts[0], sig);
           fetchMarketData(accounts[0], sig);
@@ -119,14 +118,14 @@ export default function Dashboard() {
       }
     };
     
-    // Só tentamos conectar se a config da blockchain já tiver carregado
+    
     if (blockchainConfig) {
       autoConnect();
     }
   }, [blockchainConfig]); // Executa sempre que a config mudar
   
 
-  // B. OBTER SESSÃO E DADOS DO BACKEND (NFTS)
+  // OBTER SESSÃO E DADOS DO BACKEND NFTS
   useEffect(() => {
     if (window.ethereum) {
       const prov = new ethers.providers.Web3Provider(window.ethereum);
@@ -145,9 +144,9 @@ export default function Dashboard() {
     fetchBackendData();
   }, []);
 
-  // C. RELÓGIO AO VIVO E HISTÓRICO DE EVENTOS PARA O LEILÃO
+ 
   useEffect(() => {
-    // Proteção rigorosa: Não arranca se não houver config ou leilão selecionado!
+    
     if (!selectedAuction || !blockchainConfig) return;
 
     const fetchHistory = async () => {
@@ -187,25 +186,18 @@ export default function Dashboard() {
 
 
   // ==============================================================
-  // 3. ECRÃS DE PARAGEM OBRIGATÓRIA (ERROS E LOADING)
+  //  ECRÃS DE ERROS E LOADING
   // ==============================================================
 
   if (configError) {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', height: '100vh', background: '#450a0a', color: '#fff', textAlign: 'center', padding: '2rem' }}>
-        <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>🚨</div>
-        <b style={{ fontSize: '1.5rem', color: '#fca5a5' }}>Falha Crítica de Conexão (Web2.5)</b>
+        <div style={{ fontSize: '3rem', marginBottom: '1rem' }}></div>
+        <b style={{ fontSize: '1.5rem', color: '#fca5a5' }}>Falha Crítica de Conexão </b>
         <p style={{ color: '#fecaca', maxWidth: '500px', lineHeight: '1.5' }}>
           O Frontend não conseguiu contactar o teu servidor Node.js no porto 3001 para obter os endereços da Blockchain.
         </p>
-        <div style={{ background: '#270404', padding: '1.5rem', borderRadius: '8px', textAlign: 'left', border: '1px solid #7f1d1d', marginTop: '1rem' }}>
-          <b style={{ color: '#fff' }}>Checklist de Resolução:</b>
-          <ol style={{ color: '#fca5a5', margin: '10px 0 0 0', paddingLeft: '20px' }}>
-            <li>Abre um terminal na pasta do teu Backend e corre: <code>node server.js</code></li>
-            <li>Garante que fizeste o deploy no Hardhat para gerar o ficheiro de configuração.</li>
-            <li>Atualiza esta página.</li>
-          </ol>
-        </div>
+        
       </div>
     );
   }
@@ -214,14 +206,14 @@ export default function Dashboard() {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', height: '100vh', background: '#0f172a', color: '#fff' }}>
         <div style={{ fontSize: '2rem' }}>⏳</div>
-        <b style={{ fontSize: '1.2rem', color: '#38bdf8' }}>Sincronização Web2.5 Operacional</b>
+        <b style={{ fontSize: '1.2rem', color: '#38bdf8' }}>Sincronização  Operacional</b>
         <p style={{ color: '#94a3b8' }}>A carregar ABIs, Contratos e Endereços dinâmicos...</p>
       </div>
     );
   }
 
   // ==============================================================
-  // 4. MAPEAR AS VARIÁVEIS (Seguro porque o loading já passou)
+  //  MAPEAR AS VARIÁVEIS 
   // ==============================================================
   const DEX_ADDRESS = blockchainConfig.DEX_ADDRESS;
   const NFT_MARKET_ADDRESS = blockchainConfig.NFT_MARKET_ADDRESS;
@@ -230,10 +222,10 @@ export default function Dashboard() {
 
 
   // ==============================================================
-  // 5. AS FUNÇÕES DA APLICAÇÃO
+  //   FUNÇÕES DA APP
   // ==============================================================
   const connectWallet = async () => {
-    if (!provider) return alert('MetaMask não detetada!');
+    if (!provider) return alert('MetaMask não detetada');
     await provider.send("eth_requestAccounts", []);
     const sig = provider.getSigner();
     setSigner(sig);
@@ -271,7 +263,7 @@ export default function Dashboard() {
   const handleBuyDex = async () => {
     
     if (!ethAmount || isNaN(ethAmount) || Number(ethAmount) <= 0) {
-      return alert('⚠️ Por favor, insira uma quantidade válida de ETH para enviar.');
+      return alert('Por favor, insira uma quantidade válida de ETH para enviar.');
     }
 
     try {
@@ -361,7 +353,7 @@ const handleMakePayment = async () => {
   const handleMintNft = async () => {
     if (!nftFile) return alert(' Por favor, selecione uma imagem para o seu ativo digital.');
     if (!nftName || nftName.trim() === "") return alert(' O nome do Projeto/NFT é obrigatório.');
-    if (!nftDescription || nftDescription.trim() === "") return alert(' A descrição do ativo é obrigatória.');
+    if (!nftDescription || nftDescription.trim() === "") return alert(' A descrição  é obrigatória.');
   
     try {
       const formData = new FormData();
@@ -380,12 +372,12 @@ const handleMakePayment = async () => {
         description: nftDescription
       });
   
-      alert(`Ativo forjado com sucesso!\nA sua arte está guardada na galeria.`);
+      alert(`Ativo criado com sucesso!\nA sua arte está guardada na galeria.`);
       setNftFile(null); 
       fetchMarketData(account, signer);
     } catch (err) { 
-      if (err.message.includes("user rejected")) return alert(" Criação cancelada pelo utilizador.");
-      alert(" Falha ao forjar o NFT. Verifique o servidor de imagens."); 
+      if (err.message.includes("user rejected")) return alert(" Criação cancelada pelo utilizador");
+      alert(" Falha ao criar o NFT. "); 
     }
   };
 
@@ -399,10 +391,10 @@ const handleMakePayment = async () => {
       const tempMeusNfts = [];
       const idsOcupados = new Set(); 
 
-      // 1. Scan da Blockchain para encontrar o que está no Mercado
+      // Scan da Blockchain para encontrar o que está no Mercado
       for (let i = 1; i <= 50; i++) {
         try {
-          // Verificar Vendas Diretas (CORRIGIDO: listing.active === true)
+          
           const listing = await contract.listings(i);
           if (listing.price && listing.price.gt(0) && listing.active === true) {
             const uri = await contract.tokenURI(i);
@@ -429,7 +421,7 @@ const handleMakePayment = async () => {
         } catch (e) { continue; }
       }
 
-      // 2. Scan da Galeria (apenas os NFTs que NÃO estão ocupados em mercado/leilão)
+      //  Scan da Galeria apenas os NFTs que NÃO estão ocupados em mercado/leilão
       for (let i = 1; i <= 50; i++) {
         try {
           const owner = await contract.ownerOf(i);
@@ -442,7 +434,7 @@ const handleMakePayment = async () => {
         } catch (e) { continue; }
       }
     
-      // 3. Atualizar estados do React
+      // Atualizar estados do React
       setMarketListings(tempVendas);
       setActiveAuctions(tempLeiloes);
       setAllP2pLoans(tempP2p);
@@ -474,7 +466,7 @@ const handleMakePayment = async () => {
     try {
       const contract = new ethers.Contract(NFT_MARKET_ADDRESS, NFT_MARKET_ABI, signer);
       await (await contract.burnNFT(burnTokenId)).wait();
-      alert('NFT permanentemente destruído (burned).');
+      alert('NFT permanentemente destruído .');
       fetchMarketData(account, signer);
     } catch (err) { alert(err.message); }
   };
@@ -533,7 +525,7 @@ const handleMakePayment = async () => {
 
 
 const handleListNftForSale = async () => {
-    if (!listTokenId || !listPrice) return alert('Aviso: Preencha o Token ID e o Preço da venda.');
+    if (!listTokenId || !listPrice) return alert(' Preencha o Token ID e o Preço da venda.');
 
     const isAvailable = myNfts.find(nft => nft.tokenId.toString() === listTokenId.toString());
     if (!isAvailable) {
@@ -624,7 +616,7 @@ const handleListNftForSale = async () => {
       setSelectedSale(null);
       fetchMarketData(account, signer);
     } catch (err) {
-      alert("Erro ao cancelar listagem: " + (err.reason || err.message));
+      alert("Erro ao cancelar : " + (err.reason || err.message));
     }
   };
 
@@ -667,7 +659,7 @@ const logout = () => {
   setSessionUser(null);
   setAccount('');
   setSigner(null);
-  window.location.reload(); // Recarrega para limpar todos os estados
+  window.location.reload(); 
 };
 
   // ==============================================================
@@ -741,7 +733,7 @@ const logout = () => {
                       </div>
                     </div>
                   );
-                }) : <p style={{ color: '#94a3b8', fontSize: '0.9rem', margin: 0 }}>Não tens empréstimos Standard ativos neste momento.</p>}
+                }) : <p style={{ color: '#94a3b8', fontSize: '0.9rem', margin: 0 }}>Não tens empréstimos ativos neste momento.</p>}
               </div>
             </div>
 
@@ -816,7 +808,7 @@ const logout = () => {
                         </h2>
                         
                         <div style={{ background: '#121026', padding: '1rem', borderRadius: '8px', borderLeft: '4px solid #d946ef' }}>
-                          <p style={{ margin: '0 0 5px 0', color: '#aaa', fontWeight: 'bold', fontSize: '0.9rem' }}>📝 Descrição do Projeto:</p>
+                          <p style={{ margin: '0 0 5px 0', color: '#aaa', fontWeight: 'bold', fontSize: '0.9rem' }}> Descrição do Projeto:</p>
                           <p style={{ margin: 0, color: '#e2e8f0', lineHeight: '1.5', fontSize: '0.95rem' }}>
                             {meta.description || "Nenhuma descrição fornecida pelo criador."}
                           </p>
@@ -880,20 +872,20 @@ const logout = () => {
                           } catch(e) { alert(e.message); }
                         }}
                       >
-                        🏆 Finalizar Leilão e Reclamar NFT
+                        Finalizar Leilão e Reclamar NFT
                       </button>
                     ) : (
                       <>
                         <input id="auction-bid-amount" style={{ ...inputStyle, fontSize: '1.2rem', padding: '1rem' }} placeholder="Valor da tua licitação (ETH)" />
                         <button style={{ ...btnStyle, background: '#d946ef', width: '100%', fontSize: '1.2rem', padding: '1rem', marginTop: '10px' }} onClick={async () => {
                           if (account.toLowerCase() === selectedAuction.seller.toLowerCase()) {
-                            return alert("⚠️ Ação Bloqueada: O dono do NFT não pode participar no próprio leilão!");
+                            return alert("Ação Bloqueada: O dono do NFT não pode participar no próprio leilão!");
                           }
                           try {
                             const val = document.getElementById('auction-bid-amount').value;
                             const c = new ethers.Contract(NFT_MARKET_ADDRESS, NFT_MARKET_ABI, signer);
                             await (await c.placeBid(selectedAuction.tokenId, { value: ethers.utils.parseEther(val) })).wait();
-                            alert('🔥 Licitação registada com sucesso!');
+                            alert(' Licitação registada com sucesso!');
                             fetchMarketData(account, signer);
                             setSelectedAuction(null);
                           } catch(e) { alert(e.message); }
@@ -934,14 +926,14 @@ const logout = () => {
                               <>
                                 <h2 style={{ margin: 0, color: '#fff', fontSize: '2rem' }}>{meta.name || `Asset #${selectedMyNft.tokenId}`}</h2>
                                 <div style={{ background: '#0b0a12', padding: '1rem', borderRadius: '8px', borderLeft: '4px solid #c084fc' }}>
-                                  <p style={{ margin: '0 0 5px 0', color: '#aaa', fontWeight: 'bold', fontSize: '0.9rem' }}>📝 Descrição do Ativo:</p>
+                                  <p style={{ margin: '0 0 5px 0', color: '#aaa', fontWeight: 'bold', fontSize: '0.9rem' }}> Descrição do Ativo:</p>
                                   <p style={{ margin: 0, color: '#e2e8f0', lineHeight: '1.5', fontSize: '0.95rem' }}>{meta.description || "Nenhuma descrição disponível."}</p>
                                 </div>
                               </>
                             );
                           })()}
                           <div style={{ background: '#0b0a12', padding: '1rem', borderRadius: '8px', color: '#fff' }}>
-                            <p style={{ margin: 0, fontSize: '0.9rem', color: '#aaa' }}>ID do Ativo na Blockchain: <b style={{ color: '#c084fc' }}>{selectedMyNft.tokenId}</b></p>
+                            <p style={{ margin: 0, fontSize: '0.9rem', color: '#aaa' }}>ID na Blockchain: <b style={{ color: '#c084fc' }}>{selectedMyNft.tokenId}</b></p>
                           </div>
                         </div>
                       </div>
@@ -957,7 +949,7 @@ const logout = () => {
                           >
                             <img src={nft.uri} alt={`NFT ${nft.tokenId}`} style={{ width: '100%', height: '130px', objectFit: 'cover', borderRadius: '6px', marginBottom: '8px', backgroundColor: '#000' }} />
                             <span style={{ color: '#fff', fontSize: '0.85rem', fontWeight: 'bold', display: 'block' }}>ID do Token: <span style={{color: '#a855f7'}}>{nft.tokenId}</span></span>
-                            <p style={{ color: '#c084fc', fontSize: '0.75rem', fontWeight: 'bold', marginTop: '5px' }}>👉 Detalhes</p>
+                            <p style={{ color: '#c084fc', fontSize: '0.75rem', fontWeight: 'bold', marginTop: '5px' }}> Detalhes</p>
                           </div>
                         )) : (
                           <p style={{ color: '#6b7280', fontSize: '0.9rem', margin: '10px' }}>Ainda não possuis nenhum NFT nesta carteira. Cria um no formulário abaixo!</p>
@@ -991,7 +983,7 @@ const logout = () => {
                               <>
                                 <h2 style={{ margin: 0, color: '#fff', fontSize: '2rem' }}>{meta.name || `Item #${selectedSale.tokenId}`}</h2>
                                 <div style={{ background: '#0f172a', padding: '1rem', borderRadius: '8px', borderLeft: '4px solid #a855f7' }}>
-                                  <p style={{ margin: '0 0 5px 0', color: '#94a3b8', fontWeight: 'bold', fontSize: '0.9rem' }}>📝 Descrição do Item:</p>
+                                  <p style={{ margin: '0 0 5px 0', color: '#94a3b8', fontWeight: 'bold', fontSize: '0.9rem' }}> Descrição do Item:</p>
                                   <p style={{ margin: 0, color: '#e2e8f0', lineHeight: '1.5', fontSize: '0.95rem' }}>{meta.description || "Nenhuma descrição fornecida para esta listagem."}</p>
                                 </div>
                               </>
@@ -1050,7 +1042,7 @@ const logout = () => {
                             <p style={{ color: '#10b981', fontWeight: 'bold', margin: '10px 0' }}>
                               {ethers.utils.formatEther(item.price)} {item.isDexPayment ? 'DEX' : 'ETH'}
                             </p>
-                            <p style={{ color: '#a855f7', fontSize: '0.8rem', fontWeight: 'bold', marginTop: '5px' }}>👉 Detalhes</p>
+                            <p style={{ color: '#a855f7', fontSize: '0.8rem', fontWeight: 'bold', marginTop: '5px' }}> Detalhes</p>
                           </div>
                         )) : <p style={{ color: '#6b7280', fontSize: '0.9rem' }}>Não há NFTs listados para venda direta.</p>}
                       </div>
@@ -1076,7 +1068,7 @@ const logout = () => {
                           <img src={auction.uri} alt={`NFT ${auction.tokenId}`} style={{ width: '100%', height: '180px', objectFit: 'cover', borderRadius: '6px', marginBottom: '10px', backgroundColor: '#000' }} />
                           <b style={{ color: '#fff', display: 'block' }}>Leilão ID: {auction.tokenId}</b>
                           <p style={{ color: '#fbcfe8', fontSize: '0.85rem', margin: '5px 0' }}>Base: {ethers.utils.formatEther(auction.minPrice)} ETH</p>
-                          <p style={{ color: '#a855f7', fontWeight: 'bold', marginTop: '10px' }}>👉 Clica para entrar</p>
+                          <p style={{ color: '#a855f7', fontWeight: 'bold', marginTop: '10px' }}>Clica para entrar</p>
                         </div>
                       )) : <p style={{ color: '#6b7280', fontSize: '0.9rem' }}>Nenhum leilão ativo neste momento.</p>}
                     </div>
@@ -1114,7 +1106,7 @@ const logout = () => {
                       description: nftDescription
                     });
 
-                    alert('Ativo forjado com sucesso!');
+                    alert('Ativo Criado com sucesso!');
 
                     fetchMarketData(account, signer);
 
@@ -1202,7 +1194,7 @@ const resDb = await axios.get('http://localhost:3001/api/nfts');
                       })()}
 
                       <div style={{ background: '#064e3b', padding: '1rem', borderRadius: '8px' }}>
-                        <p style={{ margin: '0 0 5px 0', color: '#a7f3d0', fontSize: '0.85rem' }}>👤 Criador:</p>
+                        <p style={{ margin: '0 0 5px 0', color: '#a7f3d0', fontSize: '0.85rem' }}> Criador:</p>
                         <p style={{ margin: 0, color: '#fff', fontFamily: 'monospace', fontSize: '1.05rem', overflowWrap: 'anywhere' }}>
                           {selectedP2pLoan.borrower}
                         </p>
@@ -1244,7 +1236,7 @@ const resDb = await axios.get('http://localhost:3001/api/nfts');
                               await (await dexContract.approve(NFT_MARKET_ADDRESS, selectedP2pLoan.dexRequired)).wait();
                               await (await contract.fundNftLoan(selectedP2pLoan.id, { value: selectedP2pLoan.ethRequested })).wait();
                               
-                              alert('🎉 Crédito concedido com sucesso! O projeto foi financiado.');
+                              alert(' Crédito concedido com sucesso! O projeto foi financiado.');
                               setSelectedP2pLoan(null); 
                               fetchMarketData(account, signer); 
                             } catch(e) { alert(e.message); }
@@ -1270,7 +1262,7 @@ const resDb = await axios.get('http://localhost:3001/api/nfts');
                         {loan.uri && <img src={loan.uri} alt="NFT Colateral" style={{ width: '100%', height: '140px', objectFit: 'cover', borderRadius: '6px', marginBottom: '10px' }} />}
                         <b style={{ color: '#fff', display: 'block' }}>Projeto ID: {loan.id.toString()}</b>
                         <p style={{ color: '#d1fae5', margin: '10px 0' }}>Requisitado: <b style={{color: '#fbbf24'}}>{ethers.utils.formatEther(loan.ethRequested)} ETH</b></p>
-                        <p style={{ color: '#34d399', fontWeight: 'bold', marginTop: '10px' }}>👉 Clica para ver detalhes</p>
+                        <p style={{ color: '#34d399', fontWeight: 'bold', marginTop: '10px' }}> Clica para ver detalhes</p>
                       </div>
                     ))}
                     {allP2pLoans.filter(l => l.active && !l.funded && l.borrower.toLowerCase() !== account.toLowerCase()).length === 0 && <p style={{ color: '#aaa' }}>Não há pedidos ativos no mercado.</p>}
@@ -1297,12 +1289,12 @@ const resDb = await axios.get('http://localhost:3001/api/nfts');
                         <button style={{ ...btnStyle, background: '#ef4444', width: '100%', marginTop: '10px' }} onClick={async () => {
                           const now = Math.floor(Date.now() / 1000);
                           if (now <= loan.expiry.toNumber()) {
-                            return alert("⚠️ Ação Bloqueada: O prazo do empréstimo ainda não expirou! Só podes forçar a liquidação depois do tempo acabar.");
+                            return alert("Ação Bloqueada: O prazo do empréstimo ainda não expirou! Só podes forçar a liquidação depois do tempo acabar.");
                           }
                           try {
                             const c = new ethers.Contract(NFT_MARKET_ADDRESS, NFT_MARKET_ABI, signer);
                             await (await c.liquidateNftLoan(loan.id)).wait();
-                            alert('⚖️ Liquidação executada com sucesso! O NFT agora pertence-te.');
+                            alert('Liquidação executada com sucesso! O NFT agora pertence-te.');
                             fetchMarketData(account, signer);
                           } catch(e) { alert(e.message); }
                         }}>Forçar Liquidação</button>
