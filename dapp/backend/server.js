@@ -147,7 +147,7 @@ app.post('/api/nfts', (req, res) => {
 
 
 // ==========================================
-//  ROTA CONFIGURAÇÕES DA BLOCKCHAIN
+// 3. ROTA CONFIGURAÇÕES DA BLOCKCHAIN
 // ==========================================
 const CONFIG_FILE = path.join(__dirname, 'contractConfig.json');
 

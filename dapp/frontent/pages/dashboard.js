@@ -7,6 +7,8 @@ export default function Dashboard() {
   // ==============================================================
   //  TODOS OS ESTADOS
   // ==============================================================
+  // Verifica se esta linha existe no topo, junto com os outros states:
+  const [myPendingRefund, setMyPendingRefund] = useState('0');
   const [blockchainConfig, setBlockchainConfig] = useState(null);
   const [loadingConfig, setLoadingConfig] = useState(true);
   const [configError, setConfigError] = useState(false);
@@ -350,6 +352,30 @@ const handleMakePayment = async () => {
     }
   };
 
+  const fetchRefundBalance = async (userAddress) => {
+    try {
+        const contract = new ethers.Contract(NFT_MARKET_ADDRESS, NFT_MARKET_ABI, signer);
+        // Vai buscar o saldo pendente do utilizador
+        const pendingWei = await contract.pendingRefunds(userAddress);
+        setMyPendingRefund(ethers.utils.formatEther(pendingWei));
+    } catch (err) {
+        console.error("Erro ao buscar reembolso:", err);
+    }
+};
+
+  const handleWithdrawRefund = async () => {
+    try {
+      const contract = new ethers.Contract(NFT_MARKET_ADDRESS, NFT_MARKET_ABI, signer);
+      const tx = await contract.withdrawRefund();
+      await tx.wait();
+      
+      alert('ETH recuperado com sucesso! O valor dos lances perdidos já está na tua carteira.');
+      fetchMarketData(account, signer); 
+    } catch (err) {
+      alert("Erro ao recuperar fundos: " + (err.reason || err.message));
+    }
+  };
+
   const handleMintNft = async () => {
     if (!nftFile) return alert(' Por favor, selecione uma imagem para o seu ativo digital.');
     if (!nftName || nftName.trim() === "") return alert(' O nome do Projeto/NFT é obrigatório.');
@@ -448,6 +474,8 @@ const handleMakePayment = async () => {
     try {
       const contract = new ethers.Contract(NFT_MARKET_ADDRESS, NFT_MARKET_ABI, signer);
       const listing = await contract.listings(buyTokenId);
+      const pendingWei = await contract.pendingRefunds(userAddress);
+      setMyPendingRefund(ethers.utils.formatEther(pendingWei));
     
       if (listing.isDexPayment) {
         const dexContract = new ethers.Contract(DEX_ADDRESS, DEX_ABI, signer);
@@ -783,6 +811,31 @@ const logout = () => {
                 🔄 Atualizar Mercado
               </button>
             </div>
+{/* 2. INSERE AQUI A CAIXA DE REEMBOLSO */}
+<div style={{ background: '#1e1b4b', padding: '1rem', borderRadius: '8px', border: '1px solid #c026d3', marginBottom: '2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <h4 style={{ margin: '0 0 5px 0', color: '#fbcfe8' }}>Recuperar Lances Perdidos</h4>
+                <p style={{ margin: 0, color: '#aaa', fontSize: '0.85rem' }}>
+                  Tens atualmente <b style={{ color: '#d946ef' }}>{myPendingRefund} ETH</b> para resgatar.
+                </p>
+              </div>
+              <button 
+                style={{ 
+                    padding: '0.6rem 1.2rem', 
+                    background: Number(myPendingRefund) > 0 ? '#d946ef' : '#4b5563', 
+                    color: '#fff', 
+                    border: 'none', 
+                    borderRadius: '6px', 
+                    fontWeight: 'bold', 
+                    cursor: Number(myPendingRefund) > 0 ? 'pointer' : 'not-allowed' 
+                }} 
+                onClick={handleWithdrawRefund}
+                disabled={Number(myPendingRefund) === 0} 
+              >
+                {Number(myPendingRefund) > 0 ? "📥 Levantar ETH" : "Sem saldo"}
+              </button>
+            </div>
+            
 
             {selectedAuction ? (
               <div style={{ background: '#1e1b4b', padding: '2rem', borderRadius: '12px', border: '1px solid #c026d3', display: 'flex', gap: '2rem', alignItems: 'flex-start' }}>
