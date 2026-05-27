@@ -1,23 +1,21 @@
 import { useState, useEffect } from 'react';
 import { ethers } from 'ethers';
 import Link from 'next/link';
-
-const DEX_ABI = [
-  "function setDexSwapRate(uint256 _newRate) external",
-  "function setGlobalParams(uint256 _cycle, uint256 _interest, uint256 _fee, uint256 _maxDuration) external",
-  "function owner() external view returns (address)"
-];
-
-const DEX_ADDRESS = "0x5FbDB2315678afecb367f032d93F642f64180aa3";
+import axios from 'axios';
 
 export default function AdminConsole() {
-  const [currentAccount, setCurrentAccount] = useState('');
+  // Estados para a configuração dinâmica da Blockchain
+  const [blockchainConfig, setBlockchainConfig] = useState(null);
+  const [loadingConfig, setLoadingConfig] = useState(true);
+
+  //  Estados do formulário e validação
   const [rate, setRate] = useState('');
   const [cycle, setCycle] = useState('');
   const [interest, setInterest] = useState('');
   const [fee, setFee] = useState('');
   const [maxDuration, setMaxDuration] = useState('');
   const [adminAddress, setAdminAddress] = useState('');
+  const [currentAccount, setCurrentAccount] = useState('');
 
   const getSigner = async () => {
     if (!window.ethereum) throw new Error("MetaMask não detetada!");
@@ -26,38 +24,56 @@ export default function AdminConsole() {
     return provider.getSigner();
   };
 
+  // Obter as configurações do Backend (ABI e Endereços dinâmicos)
   useEffect(() => {
-    const fetchAdmin = async () => {
+    const fetchConfig = async () => {
+      try {
+        const res = await axios.get('http://localhost:3001/api/blockchain/config');
+        setBlockchainConfig(res.data);
+        setLoadingConfig(false);
+      } catch (e) {
+        console.error("Erro ao carregar configurações da blockchain:", e);
+        setLoadingConfig(false);
+      }
+    };
+    fetchConfig();
+  }, []);
+
+  // Verificar quem é o Admin e quem está ligado na MetaMask
+  useEffect(() => {
+    const fetchAdminAndUser = async () => {
+      
+      if (!blockchainConfig) return; 
+
       try {
         if (window.ethereum) {
+          //  Obter a conta atual da MetaMask
+          const accounts = await window.ethereum.request({ method: 'eth_accounts' });
+          if (accounts.length > 0) setCurrentAccount(accounts[0].toLowerCase());
+
+          //  Obter quem é o dono no Smart Contract
           const provider = new ethers.providers.Web3Provider(window.ethereum);
-          const contract = new ethers.Contract(DEX_ADDRESS, DEX_ABI, provider);
+          const contract = new ethers.Contract(
+            blockchainConfig.DEX_ADDRESS, 
+            blockchainConfig.DEX_ABI, 
+            provider
+          );
           const owner = await contract.owner();
           setAdminAddress(owner);
         }
       } catch (e) { console.error(e); }
     };
-    fetchAdmin();
-  }, []);
-
-  useEffect(() => {
-  const getAcc = async () => {
-    if (window.ethereum) {
-      const accounts = await window.ethereum.request({ method: 'eth_accounts' });
-      if (accounts.length > 0) setCurrentAccount(accounts[0].toLowerCase());
-    }
-  };
-  getAcc();
-}, []);
+    fetchAdminAndUser();
+  }, [blockchainConfig]); 
 
   const updateRate = async () => {
-
     if (currentAccount !== adminAddress.toLowerCase()) {
-      return alert("Acesso Negado: Esta não é a conta de administrador.");
+      return alert("Acesso Negado: Apenas a conta administradora pode efetuar esta alteração.");
     }
+
     try {
       const sig = await getSigner();
-      const contract = new ethers.Contract(DEX_ADDRESS, DEX_ABI, sig);
+      const contract = new ethers.Contract(blockchainConfig.DEX_ADDRESS, blockchainConfig.DEX_ABI, sig);
       const tx = await contract.setDexSwapRate(ethers.utils.parseEther(rate));
       await tx.wait();
       alert('Taxa de Câmbio atualizada com sucesso!');
@@ -66,17 +82,24 @@ export default function AdminConsole() {
 
   const updateParams = async () => {
     if (currentAccount !== adminAddress.toLowerCase()) {
-      return alert("Acesso Negado: Esta não é a conta de administrador.");
+      return alert("Acesso Negado: Apenas a conta administradora pode efetuar esta alteração.");
     }
+
     try {
       const sig = await getSigner();
-      const contract = new ethers.Contract(DEX_ADDRESS, DEX_ABI, sig);
-      const tx = await contract.setGlobalParams(cycle, interest, ethers.utils.parseEther(fee), maxDuration);
+      const contract = new ethers.Contract(blockchainConfig.DEX_ADDRESS, blockchainConfig.DEX_ABI, sig);
+      
+      
+      const tx = await contract.setGlobalParams(
+        Number(cycle), 
+        Number(interest), 
+        ethers.utils.parseEther(fee), 
+        Number(maxDuration)
+      );
       await tx.wait();
       alert('Parâmetros Globais de Empréstimo reconfigurados!');
     } catch (err) { alert(err.message); }
   };
-
 
   const styles = {
     container: {
@@ -147,9 +170,16 @@ export default function AdminConsole() {
     }
   };
 
+  if (loadingConfig) {
+    return (
+      <div style={{ ...styles.container, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+        <p>A sincronizar configurações ...</p>
+      </div>
+    );
+  }
+
   return (
     <>
-     
       <style jsx global>{`
         html, body {
           margin: 0 !important;
@@ -171,13 +201,13 @@ export default function AdminConsole() {
             <Link href="/dashboard" style={styles.btnNav}>← Voltar ao App</Link>
           </div>
 
-          {/*VALORIZAÇÃO do TOKEN */}
+          {/* AJUSTE VALORIZAÇÃO TOKEN */}
           <div style={styles.section}>
             <h3 style={{ marginTop: 0, color: '#d946ef' }}>Ajustar Valorização do Token DEX</h3>
             <p style={{ color: '#aaa', fontSize: '0.9rem' }}>Define o rácio de conversão de DEX para Wei (Custo por unidade de token).</p>
-            <label style={{ display: 'block', fontSize: '0.9rem', color: '#ccc' }}>Novo Swap Rate (em Wei)</label>
-            <input placeholder="Ex: 1000000000000000" style={styles.input} value={rate} onChange={e => setRate(e.target.value)} /><br/>
-            <button style={styles.btn} onClick={updateRate}>Push Adjustment</button>
+            <label style={{ display: 'block', fontSize: '0.9rem', color: '#ccc' }}>Novo Swap Rate (Custo em ETH, ex: 0.001)</label>
+            <input placeholder="Ex: 0.001" style={styles.input} value={rate} onChange={e => setRate(e.target.value)} /><br/>
+            <button style={styles.btn} onClick={updateRate}>Submeter Alteração</button>
           </div>
 
           {/* PARÂMETROS GLOBAIS DE EMPRÉSTIMO */}
@@ -195,15 +225,15 @@ export default function AdminConsole() {
                 <input placeholder="Ex: 10" style={styles.input} value={interest} onChange={e => setInterest(e.target.value)} />
               </div>
               <div>
-                <label style={{ fontSize: '0.9rem', color: '#ccc' }}>Taxa de Rescisão Precoce (Wei)</label>
-                <input placeholder="Ex: 50000000000000" style={styles.input} value={fee} onChange={e => setFee(e.target.value)} />
+                <label style={{ fontSize: '0.9rem', color: '#ccc' }}>Taxa de Rescisão Precoce (em ETH, ex: 0.01)</label>
+                <input placeholder="Ex: 0.01" style={styles.input} value={fee} onChange={e => setFee(e.target.value)} />
               </div>
               <div>
                 <label style={{ fontSize: '0.9rem', color: '#ccc' }}>Prazo Máximo Autorizado (Ciclos)</label>
                 <input placeholder="Ex: 10" style={styles.input} value={maxDuration} onChange={e => setMaxDuration(e.target.value)} />
               </div>
             </div>
-            <button style={{ ...styles.btn, marginTop: '1rem' }} onClick={updateParams}>Guardar Configurações</button>
+            <button style={{ ...styles.btn, marginTop: '1rem' }} onClick={updateParams}>Guarda Configurações</button>
           </div>
         </div>
       </div>
