@@ -116,6 +116,7 @@ export default function Dashboard() {
           updateDexBalance(accounts[0], sig);
           fetchMyLoans(accounts[0], sig);
           fetchMarketData(accounts[0], sig);
+          fetchRefundBalance(accounts[0], sig);
         }
       }
     };
@@ -236,6 +237,7 @@ export default function Dashboard() {
     updateDexBalance(addr, sig);
     fetchMyLoans(addr, sig);
     fetchMarketData(addr, sig);
+    fetchRefundBalance(addr, sig);
   };
 
   const updateDexBalance = async (addr, sig) => {
@@ -352,10 +354,9 @@ const handleMakePayment = async () => {
     }
   };
 
-  const fetchRefundBalance = async (userAddress) => {
+  const fetchRefundBalance = async (userAddress, sig) => {
     try {
-        const contract = new ethers.Contract(NFT_MARKET_ADDRESS, NFT_MARKET_ABI, signer);
-        // Vai buscar o saldo pendente do utilizador
+        const contract = new ethers.Contract(NFT_MARKET_ADDRESS, NFT_MARKET_ABI, sig || signer);
         const pendingWei = await contract.pendingRefunds(userAddress);
         setMyPendingRefund(ethers.utils.formatEther(pendingWei));
     } catch (err) {
@@ -370,6 +371,7 @@ const handleMakePayment = async () => {
       await tx.wait();
       
       alert('ETH recuperado com sucesso! O valor dos lances perdidos já está na tua carteira.');
+      await fetchRefundBalance(account, signer);
       fetchMarketData(account, signer); 
     } catch (err) {
       alert("Erro ao recuperar fundos: " + (err.reason || err.message));
@@ -939,6 +941,7 @@ const logout = () => {
                             const c = new ethers.Contract(NFT_MARKET_ADDRESS, NFT_MARKET_ABI, signer);
                             await (await c.placeBid(selectedAuction.tokenId, { value: ethers.utils.parseEther(val) })).wait();
                             alert(' Licitação registada com sucesso!');
+                            await fetchRefundBalance(account, signer);
                             fetchMarketData(account, signer);
                             setSelectedAuction(null);
                           } catch(e) { alert(e.message); }

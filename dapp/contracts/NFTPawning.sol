@@ -324,7 +324,7 @@ contract NFTPawningMarketplace is ERC721URIStorage, ReentrancyGuard {
         require(loanData.funded && loanData.active, "Inativo.");
         require(block.timestamp > loanData.expiry, "Prazo ainda nao expirou.");
 
-        s
+        
         loanData.active = false;
 
         address provider = loanData.provider;
