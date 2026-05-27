@@ -1,8 +1,8 @@
-// SPDX-License-Identifier: MIT
+
 pragma solidity ^0.8.30;
 
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721URIStorage.sol";
-// [FIX #2/#6] ReentrancyGuard protege buyNFT, placeBid, repayNftLoan e liquidateNftLoan
+
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "./DecentralizedFinance.sol";
 
@@ -237,7 +237,7 @@ contract NFTPawningMarketplace is ERC721URIStorage, ReentrancyGuard {
         require(durationSecs > 0, "Duracao invalida.");
         require(getApproved(tokenId) == address(this), "Aprove o contrato.");
 
-        // EFFECTS: NFT em custódia antes de registar o pedido
+        //  NFT em custódia antes de registar o pedido
         _transfer(msg.sender, address(this), tokenId);
 
         uint256 swapRate = dexContract.dexSwapRate();
@@ -264,7 +264,7 @@ contract NFTPawningMarketplace is ERC721URIStorage, ReentrancyGuard {
         require(msg.value == loanData.ethRequested, "Tens de enviar o valor exato de ETH pedido.");
         require(dexContract.balanceOf(msg.sender) >= loanData.dexRequired, "DEX insuficiente para colateral.");
 
-        // EFFECTS: atualizar estado antes de interações externas
+        // atualizar estado antes de interações externas
         loanData.provider = msg.sender;
         loanData.funded = true;
         loanData.expiry = block.timestamp + loanData.expiry;
@@ -273,10 +273,10 @@ contract NFTPawningMarketplace is ERC721URIStorage, ReentrancyGuard {
         uint256 dexRequired = loanData.dexRequired;
         uint256 ethRequested = loanData.ethRequested;
 
-        // INTERACTIONS: DEX do provider em custódia
+        //  DEX do provider em custódia
         dexContract.transferFrom(msg.sender, address(this), dexRequired);
 
-        // INTERACTIONS: ETH enviado ao mutuário
+        // ETH enviado ao mutuário
         (bool success, ) = payable(borrower).call{value: ethRequested}("");
         require(success, "Liquidez de ETH falhou.");
 
@@ -304,14 +304,18 @@ contract NFTPawningMarketplace is ERC721URIStorage, ReentrancyGuard {
         uint256 providerShare = totalInterest / 2;
         uint256 totalToProvider = loanData.ethRequested + providerShare; 
 
-        // 1. Devolve o colateral DEX ao provider
+        //  Devolve o colateral DEX ao provider
         dexContract.transfer(provider, dexRequired);
 
-        // 2. Envia o total (Principal + Juros) ao provider
+        //  Envia o total (Principal + Juros) ao provider
         (bool pSuccess, ) = payable(provider).call{value: totalToProvider}("");
         require(pSuccess, "Falha no pagamento do Provedor.");
 
-        // 3. Devolve o NFT ao mutuário
+        uint256 ownerShare = totalInterest / 2;
+        (bool oSuccess, ) = dappOwner.call{value: ownerShare}("");
+        require(oSuccess, "Falha no pagamento ao owner.");
+
+        //  Devolve o NFT 
         _transfer(address(this), borrower, tokenId);
 
         emit NftLoanRepaid(loanId);

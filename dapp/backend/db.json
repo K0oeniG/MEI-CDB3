@@ -4,6 +4,11 @@
       "username": "a",
       "password": "a",
       "walletAddress": "0xbDA5747bFD65F08deb54cb465eB87D40e51B197E"
+    },
+    {
+      "username": "ola",
+      "password": "ola",
+      "walletAddress": "0x70997970C51812dc3A010C7d01b50e0d17dc79C8"
     }
   ],
   "nfts": [
@@ -14,6 +19,14 @@
       "name": "dd",
       "description": "dfd",
       "timestamp": "2026-05-27T17:08:59.818Z"
+    },
+    {
+      "id": 2,
+      "creator": "0xbda5747bfd65f08deb54cb465eb87d40e51b197e",
+      "tokenUri": "http://localhost:3001/uploads/1779913045249.png",
+      "name": "olaola",
+      "description": "olaola",
+      "timestamp": "2026-05-27T20:17:28.191Z"
     }
   ],
   "loansHistory": []

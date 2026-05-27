@@ -7,7 +7,7 @@ export default function Dashboard() {
   // ==============================================================
   //  TODOS OS ESTADOS
   // ==============================================================
-  // Verifica se esta linha existe no topo, junto com os outros states:
+
   const [myPendingRefund, setMyPendingRefund] = useState('0');
   const [blockchainConfig, setBlockchainConfig] = useState(null);
   const [loadingConfig, setLoadingConfig] = useState(true);
@@ -80,7 +80,7 @@ export default function Dashboard() {
   //  USE EFFECTS
   // ==============================================================
 
-  // A. OBTER CONFIGURAÇÃO WEB2.5
+  // OBTER CONFIGURAÇÃO
   useEffect(() => {
     const fetchBlockchainInfrastructure = async () => {
       try {
@@ -1274,7 +1274,7 @@ const resDb = await axios.get('http://localhost:3001/api/nfts');
                         </div>
                         
                         <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid #334155', paddingTop: '10px', marginTop: '10px' }}>
-                          <span style={{ color: '#cbd5e1', fontWeight: 'bold' }}>Teu Lucro Estimado (+5%):</span>
+                          <span style={{ color: '#cbd5e1', fontWeight: 'bold' }}>Teu Lucro Estimado :</span>
                           <b style={{ color: '#10b981', fontSize: '1.2rem' }}>
                             +{ethers.utils.formatEther(selectedP2pLoan.ethRequested.mul(5).div(100))} ETH
                           </b>
@@ -1393,7 +1393,7 @@ const resDb = await axios.get('http://localhost:3001/api/nfts');
                                try {
                                  const c = new ethers.Contract(NFT_MARKET_ADDRESS, NFT_MARKET_ABI, signer);
                                  await (await c.repayNftLoan(loan.id, { value: totalDueBN })).wait();
-                                 alert('✅ Dívida saldada com sucesso! O teu NFT voltou para a tua carteira.');
+                                 alert(' Dívida saldada com sucesso! O teu NFT voltou para a tua carteira.');
                                  fetchMarketData(account, signer);
                                } catch(e) { alert(e.message); }
                             }}>Pagar e Recuperar NFT</button>
