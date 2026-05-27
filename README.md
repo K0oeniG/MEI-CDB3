@@ -1,4 +1,5 @@
 # MEI-CDB3 - DEX-NFT Pawning DApp
+GRUPO - 6
 
 Este projeto implementa uma aplicação descentralizada (DApp)  para a gestão de tokens substituíveis (ERC20) e ativos digitais únicos (ERC721). O ecossistema inclui um mercado DEX, pools de empréstimo standard com colateral em DEX, um marketplace de NFTs com leilões cronometrados e um sistema de empréstimos Peer-to-Peer (P2P) com colateralização de NFTs e garantias digitais em DEX.
 
